@@ -1,0 +1,6 @@
+{
+    "name": "Wargame.Editor",
+    "rootNamespace": "Wargame.Editor",
+    "references": ["Wargame.Runtime"],
+    "includePlatforms": ["Editor"]
+}
