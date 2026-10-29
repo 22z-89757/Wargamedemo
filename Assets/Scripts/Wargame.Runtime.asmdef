@@ -1,5 +1,5 @@
 {
     "name": "Wargame.Runtime",
     "rootNamespace": "Wargame",
-    "references": ["DOTween.Modules", "Unity.InputSystem", "UnityEngine.UI"]
+    "references": ["DOTween.Modules", "Unity.InputSystem", "UnityEngine.UI", "Unity.Cinemachine"]
 }

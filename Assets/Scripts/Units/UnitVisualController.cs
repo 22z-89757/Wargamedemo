@@ -40,12 +40,12 @@ namespace Wargame.Units
                 selectionRing.positionCount = 48;
                 selectionRing.sharedMaterial = markerMaterial;
                 selectionRing.startColor = selectionRing.endColor = new Color(0.25f, 0.95f, 1f, 0.95f);
-                selectionRing.widthMultiplier = cellSize * 0.045f;
+                selectionRing.widthMultiplier = cellSize * 0.06f;
                 for (int i = 0; i < 48; i++)
                 {
                     float angle = i * Mathf.PI * 2 / 48;
-                    selectionRing.SetPosition(i, new Vector3(Mathf.Cos(angle) * cellSize * 0.43f, 0.045f,
-                        Mathf.Sin(angle) * cellSize * 0.43f));
+                    selectionRing.SetPosition(i, new Vector3(Mathf.Cos(angle) * cellSize * 0.6f, 0.045f,
+                        Mathf.Sin(angle) * cellSize * 0.6f));
                 }
             }
             selectionPulse?.Kill();
@@ -53,7 +53,7 @@ namespace Wargame.Units
             selectionRing.gameObject.SetActive(selected);
             selectionRing.transform.localScale = Vector3.one;
             if (selected)
-                selectionPulse = selectionRing.transform.DOScale(1.08f, 0.65f).SetLoops(-1, LoopType.Yoyo)
+                selectionPulse = selectionRing.transform.DOScale(1.2f, 0.65f).SetLoops(-1, LoopType.Yoyo)
                     .SetEase(Ease.InOutSine).SetLink(gameObject);
         }
 

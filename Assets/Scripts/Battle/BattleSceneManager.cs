@@ -25,6 +25,7 @@ namespace Wargame.Battle
         [SerializeField] private BattlePlayerController playerController;
         [SerializeField] private BattleMovementPreview preview;
         [SerializeField] private BattleHUD hud;
+        [SerializeField] private BattleCameraRig cameraRig;
         [SerializeField] private bool startAutomatically = true;
         [SerializeField] private List<UnitSpawnEntry> playerSpawns = new List<UnitSpawnEntry>();
         [SerializeField] private List<UnitSpawnEntry> enemySpawns = new List<UnitSpawnEntry>();
@@ -35,6 +36,8 @@ namespace Wargame.Battle
         public bool IsInitialized { get; private set; }
         public GridManager Grid => grid;
         public BattleTurnManager Turns => turns;
+        public BattleCameraRig CameraRig => cameraRig;
+        public bool HasActiveGesture => playerController != null && playerController.HasActiveGesture;
         public IReadOnlyList<Unit> SpawnedUnits => spawned;
         public bool HasActiveAction
         {
@@ -47,7 +50,7 @@ namespace Wargame.Battle
         }
         public bool CanIssueOrders => IsInitialized && turns.State == BattleState.Running &&
             turns.CurrentFaction == Faction.Player && !HasActiveAction;
-        public bool CanEndPlayerTurn => CanIssueOrders && (playerController == null || !playerController.IsDragging);
+        public bool CanEndPlayerTurn => CanIssueOrders && !HasActiveGesture && (cameraRig == null || !cameraRig.IsRotating);
 
         private void Start()
         {
@@ -68,11 +71,14 @@ namespace Wargame.Battle
             { error = "至少配置一个玩家出生点。"; return false; }
             if (!Validate(playerSpawns, occupied, out error) || !Validate(enemySpawns, occupied, out error) ||
                 !playerController.ValidateConfiguration(out error)) return false;
+            if (cameraRig == null) { error = "需要 BattleCameraRig。"; return false; }
+            if (!cameraRig.ValidateConfiguration(out error)) return false;
             initializing = true;
             try
             {
                 Spawn(playerSpawns, Faction.Player);
                 Spawn(enemySpawns, Faction.Enemy);
+                cameraRig.Initialize(grid, grid.GridToWorld(playerSpawns[0].Coordinates), playerController);
                 preview.Initialize(grid);
                 hud.Initialize(this);
                 turns.SetFactionOrder(new[] { Faction.Player, Faction.Enemy });
@@ -173,6 +179,7 @@ namespace Wargame.Battle
         {
             cleaning = true;
             if (playerController != null) playerController.Shutdown();
+            if (cameraRig != null) cameraRig.Shutdown();
             if (turns != null)
             {
                 turns.FactionTurnStarted -= OnFactionStarted;

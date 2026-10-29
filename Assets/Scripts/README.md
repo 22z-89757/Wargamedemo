@@ -124,7 +124,19 @@ PC 仅使用鼠标左键，Android 使用主触点：从玩家单位按下，拖
 
 逻辑占用和 AP 先提交，`UnitVisualController` 再沿路径插值。它仅处理平移、模型转向、起伏及选中圈，模型引用、每秒格数（默认 4）、转向时间和起伏幅度均可配置。表现结束前持有独占能力和 Moving 标记，期间不能再发移动或结束回合。已提交移动被禁用、取消时对齐终点，不返还 AP；单位死亡或销毁会释放占用和回合注册。
 
-点击 `END TURN` 结束玩家回合；敌方目前只占格、不行动，下帧直接返回玩家并补满 AP。AP 耗尽不会自动切回合。HUD 的状态、提示、取消区域和结束按钮使用 uGUI，按安全区域布局；`BattleCameraController` 固定斜俯视并按比例容纳棋盘，暂不包含镜头拖动或缩放。
+点击 `END TURN` 结束玩家回合；敌方目前只占格、不行动，下帧直接返回玩家并补满 AP。AP 耗尽不会自动切回合。HUD 的状态、提示、取消区域、旋转和结束按钮使用 uGUI，按安全区域布局。
+
+### Cinemachine 战术相机
+
+Map1 使用 Cinemachine 3.1.7：MainCamera 保留渲染、URP 与 AudioListener，CinemachineBrain 采用 ManualUpdate；`BattleCameraRig` 维护竖直中心轴与俯角子节点，CinemachineCamera 通过 Follow / RotateWithFollowTarget 输出实际镜头。阻尼为零，旋转由 DOTween 插值。默认 FOV 45°、俯角 55°、朝向 45°、高度 12 格，可在 BattleCameraRig Inspector 配置。初始中心是首个玩家的出生格；横竖屏切换保持 FOV、高度与俯角，不再自动容纳全图。
+
+从非 UI 背景按下左键或主触点，超过 10 像素后抓住地图拖动；从可控制玩家按下始终使用移动手势。背景拖动保留单位选择，经过 UI 时暂停并在离开时重新建立锚点，不产生跳变。相机可在单位表现期间平移浏览；拖动相机不花费 AP。
+
+移动手势进入屏幕边缘时持续滚屏：默认边缘宽度为屏幕短边的 6%，最高每秒 8 格，速度随接近边缘增加；方向根据当前相机朝向转换，斜向不加速。指针不动时仍继续滚屏和更新目标格；松开、取消、失焦、进入 UI 或屏幕外立即停止。空闲悬停不触发。
+
+`< 90` / `90 >` 按钮绕当前相机中心射线与棋盘平面的交点旋转 −90° / +90°，耗时 0.3 秒，固定高度、俯角和 FOV；平移仅限制该中心在棋盘内，画面边缘允许显示棋盘外。中心竖直轴只通过 Scene Gizmos 显示。棋盘手势期间禁用旋转，旋转期间禁用新手势与结束回合。尚不包含缩放、自由俯仰、惯性或角色自动跟随。
+
+输入仅记录手势与释放请求。CameraRig 在 LateUpdate 先平移/滚屏并 ManualUpdate Cinemachine，玩家控制器随后用本帧实际相机刷新拾取和提交；目标格不变时复用路径，相机变化不会重新构建移动范围。外部调用可以读取 `ViewCenter`、`IsRotating`、监听 `ViewChanged`，并通过 `TryRotate(-1/1)` 请求旋转。
 
 `InputSystem_Actions` 中新增 Battle/Point 与 Battle/Press，不启用模板 Player 动作来控制战斗。`BattleInputReader` 封装设备与手势，`BattlePlayerController` 负责选择、平面拾取和能力请求；UI 使用 InputSystemUIInputModule，仅接入 Point / Click。替换模型时保留 Prefab 根节点和逻辑组件，将模型子节点重新赋给 UnitVisualController。
 

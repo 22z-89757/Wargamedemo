@@ -1,5 +1,5 @@
 {
     "name": "Wargame.PlayModeTests",
-    "references": ["Wargame.Runtime", "DOTween.Modules", "Unity.InputSystem", "UnityEngine.UI"],
+    "references": ["Wargame.Runtime", "DOTween.Modules", "Unity.InputSystem", "UnityEngine.UI", "Unity.Cinemachine"],
     "optionalUnityReferences": ["TestAssemblies"]
 }

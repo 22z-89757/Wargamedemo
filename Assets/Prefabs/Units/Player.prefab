@@ -253,7 +253,7 @@ MonoBehaviour:
   modelRoot: {fileID: 7689735210103121515}
   cellsPerSecond: 4
   turnDuration: 0.12
-  bobHeight: 0.045
+  bobHeight: 0.1
   markerMaterial: {fileID: 2100000, guid: 43a7b81f65614b64b9225853ab5c4ffe, type: 2}
 --- !u!1 &3465653958793669457
 GameObject:

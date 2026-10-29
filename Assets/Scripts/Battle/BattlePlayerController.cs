@@ -1,33 +1,37 @@
 using UnityEngine;
-using Wargame.GridSystem;
 using Wargame.Units;
 
 namespace Wargame.Battle
 {
-    /// <summary>从单位开始的拖动只产生预览，释放时才请求 MoveAbility。</summary>
+    /// <summary>锁定按下时的手势用途；相机更新后才拾取并提交移动。</summary>
     public sealed class BattlePlayerController : MonoBehaviour
     {
+        private enum Gesture { None, UnitMove, CameraPan }
         [SerializeField] private BattleInputReader input;
         [SerializeField] private Camera battleCamera;
+        [SerializeField] private BattleCameraRig cameraRig;
         [SerializeField] private BattleMovementPreview preview;
         [SerializeField] private BattleHUD hud;
         [SerializeField, Min(1)] private float dragThresholdPixels = 10f;
         private BattleSceneManager scene;
         private Unit selected;
         private MovePlan plan;
-        private bool bound, dirty = true;
-        private Vector2 pointerPosition;
-        private Vector2 pressPosition;
-        private bool hasDragged;
+        private bool bound, dirty = true, targetDirty = true;
+        private Vector2 pointerPosition, pressPosition;
+        private bool hasDragged, releasePending, panStarted;
         private Vector2Int? lastTarget;
+        private Gesture gesture;
         public Unit SelectedUnit => selected;
-        public bool IsDragging { get; private set; }
+        public bool IsDragging => gesture == Gesture.UnitMove;
+        public bool HasActiveGesture => gesture != Gesture.None;
+        public bool IsPanning => gesture == Gesture.CameraPan;
         public MovePlan PreviewPlan => plan;
 
         public bool ValidateConfiguration(out string error)
         {
-            error = input == null || battleCamera == null || preview == null || hud == null
-                ? "玩家控制器需要输入读取器、相机、范围预览和 HUD 引用。" : null;
+            error = input == null || battleCamera == null || cameraRig == null || preview == null || hud == null ||
+                (cameraRig != null && cameraRig.OutputCamera != battleCamera)
+                ? "玩家控制器需要输入、相机、匹配的 CameraRig、范围预览和 HUD。" : null;
             return error == null && input.ValidateConfiguration(out error);
         }
 
@@ -48,9 +52,10 @@ namespace Wargame.Battle
             input.Pressed += OnPressed;
             input.Dragged += OnDragged;
             input.Released += OnReleased;
-            input.Cancelled += CancelDrag;
+            input.Cancelled += CancelGesture;
             scene.Changed += MarkDirty;
             scene.Grid.Changed += MarkDirty;
+            cameraRig.ViewChanged += OnViewChanged;
         }
 
         private void Select(Unit unit)
@@ -68,114 +73,132 @@ namespace Wargame.Battle
                 selected.Tags.TagChanged += OnTagChanged;
                 selected.GetComponent<UnitVisualController>()?.SetSelected(true, scene.Grid.CellSize);
             }
-            dirty = true;
+            MarkDirty();
             lastTarget = null;
         }
 
         private void OnPressed(Vector2 position)
         {
-            if (scene == null || !scene.CanIssueOrders || input.IsOverUI(position)) return;
-            Ray ray = battleCamera.ScreenPointToRay(position);
-            if (!Physics.Raycast(ray, out RaycastHit hit, battleCamera.farClipPlane)) return;
-            Unit unit = hit.collider.GetComponentInParent<Unit>();
-            if (unit == null || !unit.IsAlive || !unit.isActiveAndEnabled || unit.Faction != Faction.Player ||
-                !unit.IsTurnActive || !scene.Grid.TryGetUnitCoordinates(unit, out _)) return;
-            Select(unit);
-            IsDragging = true;
-            hasDragged = false;
-            pressPosition = position;
-            pointerPosition = position;
-            Refresh();
+            if (scene == null || !scene.IsInitialized || HasActiveGesture || cameraRig.IsRotating ||
+                !cameraRig.isActiveAndEnabled || input.IsOverUI(position) || !battleCamera.pixelRect.Contains(position)) return;
+            gesture = Gesture.CameraPan;
+            if (scene.CanIssueOrders && Physics.Raycast(battleCamera.ScreenPointToRay(position), out RaycastHit hit, battleCamera.farClipPlane))
+            {
+                Unit unit = hit.collider.GetComponentInParent<Unit>();
+                if (unit != null && unit.IsAlive && unit.isActiveAndEnabled && unit.Faction == Faction.Player &&
+                    unit.IsTurnActive && scene.Grid.TryGetUnitCoordinates(unit, out _))
+                { Select(unit); gesture = Gesture.UnitMove; }
+            }
+            hasDragged = releasePending = panStarted = false;
+            pressPosition = pointerPosition = position;
+            targetDirty = true;
         }
 
         private void OnDragged(Vector2 position)
         {
-            if (!IsDragging) return;
+            if (!HasActiveGesture || releasePending) return;
             pointerPosition = position;
-            UpdateDragThreshold(position);
-            RefreshTarget();
+            UpdateDragThreshold();
+            targetDirty = true;
+            PrepareCameraInput();
         }
 
         private void OnReleased(Vector2 position)
         {
-            if (!IsDragging) return;
+            if (!HasActiveGesture) return;
             pointerPosition = position;
-            UpdateDragThreshold(position);
-            dirty = true;
-            RefreshTarget();
-            MovePlan request = plan;
-            bool blockedByUI = input.IsOverUI(position) || hud.IsCancelArea(position);
-            CancelDrag();
-            if (!blockedByUI && request != null && selected != null && scene.CanIssueOrders)
-            {
-                var ability = selected.Abilities.GetAbility<MoveAbility>();
-                if (ability != null) selected.Abilities.TryActivate(ability, AbilityTarget.ForCell(request.Destination), out _);
-            }
-            dirty = true;
-            Refresh();
+            UpdateDragThreshold();
+            releasePending = true;
+            targetDirty = true;
+            cameraRig.SetEdgeScrollPointer(null);
+            PrepareCameraInput();
         }
 
-        private void UpdateDragThreshold(Vector2 position)
+        private void UpdateDragThreshold()
         {
-            if (!hasDragged && (position - pressPosition).sqrMagnitude >= dragThresholdPixels * dragThresholdPixels)
-            {
-                hasDragged = true;
-                dirty = true;
-            }
+            if (!hasDragged && (pointerPosition - pressPosition).sqrMagnitude >= dragThresholdPixels * dragThresholdPixels)
+            { hasDragged = true; targetDirty = true; }
         }
 
-        private void CancelDrag()
+        private void CancelGesture()
         {
-            IsDragging = false;
-            hasDragged = false;
+            gesture = Gesture.None;
+            hasDragged = releasePending = panStarted = false;
             plan = null;
             lastTarget = null;
-            dirty = true;
-            if (scene != null && scene.IsInitialized) Refresh();
+            if (cameraRig != null) cameraRig.CancelInteraction();
+            targetDirty = true;
         }
 
         private void Update()
         {
             if (scene == null || !scene.IsInitialized) return;
-            if (selected != null && (!selected.IsAlive || !selected.isActiveAndEnabled)) Select(null);
-            if (IsDragging && !scene.CanIssueOrders) CancelDrag();
-            if (dirty) Refresh();
+            if (IsDragging && selected == null) { CancelGesture(); Select(null); }
+            if (selected != null && (!selected.IsAlive || !selected.isActiveAndEnabled))
+            { if (IsDragging) CancelGesture(); Select(null); }
+            if (HasActiveGesture && (!cameraRig.isActiveAndEnabled || (IsDragging && !scene.CanIssueOrders))) CancelGesture();
+            PrepareCameraInput();
         }
 
-        private void Refresh()
+        private void PrepareCameraInput()
+        {
+            if (IsPanning && hasDragged)
+            {
+                if (!panStarted) panStarted = cameraRig.BeginPan(pressPosition);
+                cameraRig.DragPan(pointerPosition, input.IsOverUI(pointerPosition));
+                if (releasePending) cameraRig.EndPan();
+            }
+            cameraRig.SetEdgeScrollPointer(IsDragging && hasDragged && !releasePending && !input.IsOverUI(pointerPosition)
+                ? pointerPosition : (Vector2?)null);
+        }
+
+        private void LateUpdate()
         {
             if (scene == null || !scene.IsInitialized) return;
-            if (selected == null) selected = null;
+            if (dirty) RefreshRange();
+            // CameraRig 的 LateUpdate 优先执行，拾取始终使用 Cinemachine 本帧输出。
+            if (IsDragging && (targetDirty || releasePending)) RefreshTarget();
+            else if (!IsDragging && targetDirty) { plan = null; preview.ShowPath(null); }
+            if (releasePending)
+            {
+                MovePlan request = IsDragging ? plan : null;
+                bool blocked = input.IsOverUI(pointerPosition) || hud.IsCancelArea(pointerPosition);
+                CancelGesture();
+                if (!blocked && request != null && selected != null && scene.CanIssueOrders)
+                    selected.Abilities.TryActivate("Move", AbilityTarget.ForCell(request.Destination), out _);
+                if (dirty) RefreshRange();
+                preview.ShowPath(null);
+            }
+            if (targetDirty || dirty || HasActiveGesture)
+                hud.Render(selected, plan, IsDragging, IsDragging && hud.IsCancelArea(pointerPosition));
+            dirty = targetDirty = false;
+        }
+
+        private void RefreshRange()
+        {
             var ability = selected != null ? selected.Abilities.GetAbility<MoveAbility>() : null;
             bool available = scene.CanIssueOrders && selected != null && selected.IsTurnActive && ability != null &&
                 !selected.Tags.HasAny(ability.BlockedTags);
             preview.ShowRange(available ? ability.GetReachableCells() : null, ability?.BudgetPerActionPoint ?? 0);
-            if (IsDragging) RefreshTarget();
-            else { plan = null; preview.ShowPath(null); hud.Render(selected, null, false); }
-            dirty = false;
+            targetDirty = true;
         }
 
         private void RefreshTarget()
         {
             Vector2Int? target = null;
-            bool overCancel = hud.IsCancelArea(pointerPosition);
-            if (hasDragged && !input.IsOverUI(pointerPosition))
-            {
-                Ray ray = battleCamera.ScreenPointToRay(pointerPosition);
-                if (new Plane(Vector3.up, scene.Grid.Origin).Raycast(ray, out float distance) &&
-                    scene.Grid.TryWorldToGrid(ray.GetPoint(distance), out Vector2Int cell)) target = cell;
-            }
-            if (target == lastTarget && !dirty)
-            { hud.Render(selected, plan, true, overCancel); return; }
+            if (hasDragged && battleCamera.pixelRect.Contains(pointerPosition) && !input.IsOverUI(pointerPosition) &&
+                cameraRig.TryGetPlanePoint(pointerPosition, out Vector3 point) &&
+                scene.Grid.TryWorldToGrid(point, out Vector2Int cell)) target = cell;
+            if (target == lastTarget && !dirty) return;
             lastTarget = target;
             plan = null;
             if (target.HasValue && selected != null && scene.CanIssueOrders)
                 selected.Abilities.GetAbility<MoveAbility>()?.TryGetMovePlan(target.Value, out plan, out _);
             preview.ShowPath(plan);
-            hud.Render(selected, plan, true, overCancel);
         }
 
-        private void MarkDirty() => dirty = true;
+        private void MarkDirty() { dirty = targetDirty = true; }
+        private void OnViewChanged() => targetDirty = true;
         private void OnAttributeChanged(AttributeType type, float previous, float value) => MarkDirty();
         private void OnTagChanged(GameplayTag tag, bool added) => MarkDirty();
 
@@ -186,7 +209,8 @@ namespace Wargame.Battle
                 input.Pressed -= OnPressed;
                 input.Dragged -= OnDragged;
                 input.Released -= OnReleased;
-                input.Cancelled -= CancelDrag;
+                input.Cancelled -= CancelGesture;
+                if (cameraRig != null) cameraRig.ViewChanged -= OnViewChanged;
                 if (scene != null)
                 {
                     scene.Changed -= MarkDirty;
@@ -194,8 +218,7 @@ namespace Wargame.Battle
                 }
             }
             bound = false;
-            IsDragging = false;
-            plan = null;
+            CancelGesture();
             Select(null);
             if (preview != null) preview.Clear();
             if (hud != null && scene != null) hud.Render(null, null, false);
