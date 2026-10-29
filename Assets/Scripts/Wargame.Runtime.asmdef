@@ -1,4 +1,5 @@
 {
     "name": "Wargame.Runtime",
-    "rootNamespace": "Wargame"
+    "rootNamespace": "Wargame",
+    "references": ["DOTween.Modules", "Unity.InputSystem", "UnityEngine.UI"]
 }

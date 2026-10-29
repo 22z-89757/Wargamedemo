@@ -11,7 +11,7 @@ namespace Wargame.Editor
     internal static class GridMapBaker
     {
         /// <summary>所有烘焙地图的项目相对目录。</summary>
-        internal const string OutputFolder = "Assets/MapData";
+        internal const string OutputFolder = "Assets/Data/MapData";
 
         /// <summary>完整校验草稿并计算所有格子的掩体，不修改场景或资产。</summary>
         /// <param name="grid">包含有效草稿的棋盘。</param>

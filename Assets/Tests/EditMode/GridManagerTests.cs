@@ -209,7 +209,8 @@ namespace Wargame.Tests
         {
             grid.TrySetBlockState(Vector2Int.up, BlockState.HalfBlocked);
             GridReachabilityResult result = grid.GetReachableCells(Vector2Int.zero, 1);
-            Assert.That(result.ReachableCosts[Vector2Int.up], Is.EqualTo(1));
+            Assert.That(result.ReachableCosts.ContainsKey(Vector2Int.up), Is.False);
+            Assert.That(grid.GetReachableCells(Vector2Int.zero, 2).TryGetPath(new Vector2Int(0, 2), out _), Is.True);
             grid.TrySetBlockState(Vector2Int.up, BlockState.FullBlocked);
             grid.TrySetBlockState(Vector2Int.right, BlockState.FullBlocked);
             Assert.That(grid.GetReachableCells(Vector2Int.zero, 100).ReachableCosts, Is.Empty);
@@ -346,6 +347,10 @@ namespace Wargame.Tests
             Assert.That(Cell(Vector2Int.zero).Occupant, Is.SameAs(mover));
             Assert.That(grid.TryMoveUnit(mover, Vector2Int.zero), Is.True);
             grid.TrySetBlockState(Vector2Int.up, BlockState.HalfBlocked);
+            Assert.That(grid.TryMoveUnit(mover, Vector2Int.up), Is.False);
+            Assert.That(grid.TryPlaceUnit(CreateUnit("HalfBlockedSpawn"), Vector2Int.up), Is.False);
+            Assert.That(grid.TrySetBlockState(Vector2Int.zero, BlockState.HalfBlocked), Is.False);
+            grid.TrySetBlockState(Vector2Int.up, BlockState.Unblocked);
             Assert.That(grid.TryMoveUnit(mover, Vector2Int.up), Is.True);
             Assert.That(Cell(Vector2Int.zero).Occupant, Is.Null);
             Assert.That(Cell(Vector2Int.up).Occupant, Is.SameAs(mover));

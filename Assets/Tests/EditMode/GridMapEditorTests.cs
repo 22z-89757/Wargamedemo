@@ -247,7 +247,7 @@ namespace Wargame.Tests
             MapData first = Bake();
             string path = AssetDatabase.GetAssetPath(first);
             string guid = AssetDatabase.AssetPathToGUID(path);
-            Assert.That(path, Does.StartWith("Assets/MapData/"));
+            Assert.That(path, Does.StartWith(GridMapBaker.OutputFolder + "/"));
             Assert.That(grid.SourceMap, Is.SameAs(first));
             Assert.That(first.CellCount, Is.EqualTo(25));
             Assert.That(first.TryValidate(out _), Is.True);

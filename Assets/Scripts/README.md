@@ -15,7 +15,7 @@
 2. 开启“地图编辑”，选择“同时修改”“只修改 MoveCost”或“只修改 BlockState”，设置笔刷值。全障碍的代价固定为 -1，Inspector 自动显示且禁止修改；可通行格的代价至少为 1。
 3. 在 Scene 中用鼠标左键点击或拖动绘制。拖动会补齐中间格子，整次笔画可一次撤销；Alt 仍用于场景导航。按需打开“显示移动代价”。
 4. 保存场景以保留草稿。草稿编辑不修改已经烘焙的地图资产。
-5. 填写新地图名称，点击“烘焙地图数据”。输出自动保存到 `Assets/MapData`，并关联到当前管理器。
+5. 填写新地图名称，点击“烘焙地图数据”。输出自动保存到 `Assets/Data/MapData`，并关联到当前管理器。
 6. 之后再次点击烘焙会更新关联资产并保留 GUID；“另存为新地图”始终创建新资产。同名文件会自动避让。若关联地图位于输出目录外，烘焙创建目录内的新副本，不覆盖外部资产。
 7. 需要编辑已有地图时，先设置“地图资产”，再点击“从地图资产导入草稿”。导入复制尺寸、移动代价和障碍数据，支持 Undo。
 
@@ -59,11 +59,11 @@ if (result.TryGetPath(new Vector2Int(3, 1), out var path))
 ```
 
 - 逻辑坐标 x/y 对应世界 X/Z；北为 +Z、东为 +X。世界位置转格子时忽略高度，最大 X/Z 边界位于棋盘外。
-- 移动支付进入格子的代价，起点不计费。半障碍可以通行，代价至少为 1；全障碍的 `MoveCost` 固定为 -1，寻路不会将其计入路径或累计代价。
+- 移动支付进入格子的代价，起点不计费。半障碍可以穿过但不能停留或出生，代价至少为 1；全障碍的 `MoveCost` 固定为 -1，寻路不会将其计入路径或累计代价。
 - `TrySetBlockState` 设置全障碍时同步把代价设为 -1；解除全障碍后默认恢复为 1，可再通过 `TrySetMoveCost` 调整。该代价接口不改变障碍状态，可通行格只接受正数，全障碍只接受 -1。
 - 笔刷只修改代价时会保留全障碍的 -1；只修改障碍时会同步维护上述约定。旧地图和场景草稿读取时自动将全障碍代价统一为 -1，下次保存或烘焙写入文件。
 - 四边掩体只表达本格防御效果，不改变通行，也不自动同步邻格。
-- 可达集合不包含起点和单位占用格，但路径可以穿过单位占用格。移动力为 0 时集合为空。
+- 可达集合不包含起点、半障碍和单位占用格。两参数查询保留允许穿过占用格的通用行为；`GetReachableCells(start, budget, mover)` 仅允许穿过同阵营占用格，敌军和其他阵营阻挡。移动力为 0 时集合为空。
 - 返回结果为快照，数据变化后应重新搜索。负预算、非法起点和未初始化调用的异常约定见方法 XML 注释。
 
 ## 单位占用
@@ -76,10 +76,56 @@ grid.TryMoveUnit(unit, new Vector2Int(3, 1));
 grid.TryRemoveUnit(unit);
 ```
 
-这些方法只修改逻辑引用，不移动物体，也不计算或验证路径。`TryMoveUnit` 要求单位已经位于本棋盘，目标为空且可通行；原地转移视为成功。同一单位不能重复登记到本棋盘多个格子，失败的请求保持原状态。
+这些方法只修改逻辑引用，不移动物体，也不计算或验证路径。`TryPlaceUnit` 与 `TryMoveUnit` 的目标必须是空闲的 `Unblocked` 格；原地转移视为成功。同一单位不能重复登记到本棋盘多个格子，失败的请求保持原状态。使用 `TryGetUnitCoordinates` 读取逻辑坐标；运行时地形和占用更新会触发 `Changed`。
 
 正常销毁或移出单位前调用 `TryRemoveUnit`。若物体已经销毁，其 Unity 空引用会按未占用处理。单位跨棋盘转移由调用方协调。
 
+## 单位能力系统（简化 GAS）
+
+`Unit` 通过 `RequireComponent` 自动挂载 `TagComponent`、`CharacterAttribute`、`BuffComponent`、`AbilityComponent`，并以 `unit.Tags / Attributes / Buffs / Abilities` 暴露。组件均为懒初始化，Awake 前访问也可用。
+
+- **标记**：`GameplayTag` 按用途分段显式赋值，新增时只追加。`TagComponent` 带引用计数，多个来源授予同一标记时，最后一个来源移除才清除。
+- **属性**：`Current = Override ?? (Base + ΣAdd) × max(0, 1 + Σ(Mul - 1))`。伤害、消耗改基础值（`ApplyBaseDelta`），Buff 挂修饰器。Health、ActionPoints 钳制在 [0, 对应上限]。
+- **Buff**：继承 `BuffBase`，在构造函数中配置授予标记、阻挡标记和修饰，按需重写 `protected` 钩子。`StackPolicy` 决定同 BuffId 的处理方式（Unique / Refresh / Replace / Stack / Independent）。持续时间在承受者回合结束时减一；在承受者回合内施加的 Buff 跳过当回合结算。
+- **能力**：继承 `AbilityBase`，实现 `OnActivate`，效果结束后调用 `EndAbility`。激活流程为 CanActivate → Commit（扣行动点、次数、进入冷却）→ OnActivate。失败原因见 `AbilityFailReason`。冷却在持有者回合开始时减一。
+- **回合**：`Unit.BeginTurn` 依次执行行动点回满、Buff 回合开始钩子、冷却递减；`EndTurn` 结算 Buff 倒计时。`Wargame.Battle.BattleTurnManager` 目前只负责注册单位和按阵营轮转，胜负判定与 AI 尚未实现。
+
+```csharp
+sealed class BurningBuff : BuffBase
+{
+    public BurningBuff() : base("Burning", 2, BuffStackPolicy.Refresh)
+    {
+        AddGrantedTag(GameplayTag.Burning);
+        AddBlockedByTag(GameplayTag.ImmuneFire);
+    }
+
+    protected override void OnOwnerTurnStarted() =>
+        Owner.Attributes.ApplyBaseDelta(AttributeType.Health, -2f);
+}
+
+unit.Buffs.TryApply(new BurningBuff(), attacker);
+```
+
 ## 验证
 
-Unity Test Runner 的 EditMode 中运行 `Wargame.EditModeTests` 程序集，覆盖坐标、障碍、占用、加权范围、路径快照、草稿保存重载、笔刷与撤销、Prefab 覆盖、掩体烘焙、资产 GUID、资产撤销持久化及运行时副本隔离。
+Unity Test Runner 的 EditMode 中运行 `Wargame.EditModeTests` 程序集，覆盖坐标、障碍、占用、加权范围、路径快照、草稿保存重载、笔刷与撤销、Prefab 覆盖、掩体烘焙、资产 GUID、资产撤销持久化及运行时副本隔离；`Tests/EditMode/Units` 覆盖标记计数、属性公式与钳制、Buff 叠加策略与持续时间、能力激活流程、单位回合钩子及回合管理器轮转。
+
+也可以通过 Unity CLI 对运行中的编辑器执行测试：`unity command "test run" --mode editor --filter Wargame.EditModeTests --filter_type assembly`。
+
+## 战斗场景与拖动移动
+
+打开 `Assets/Scenes/Map1.unity` 即可运行。`GameManager` 上的 `BattleSceneManager` 在 Start 校验出生列表，动态生成 `Assets/Prefabs/Units/Player.prefab` 和 `Enemy.prefab`。默认玩家 `(1,1)`，敌人 `(18,18)`；在 Inspector 修改 Prefab、Coordinates、Yaw 或增加列表项。出生格不能重复、越界、被占用或属于 HalfBlocked / FullBlocked。Prefab 根节点需有 Unit、启用的 UnitVisualController，且有可拾取 Collider。
+
+PC 仅使用鼠标左键，Android 使用主触点：从玩家单位按下，拖到蓝色或黄色空格，松开执行；单击只选中。拖到红色取消区域、其他 UI、棋盘外或非法格子松开均取消，不扣 AP。额外触点不接管手势，捕获手指抬起即结束，失焦或系统取消也会清除预览。
+
+蓝色范围是 1AP，黄色范围是 2AP。路径按格子进入代价累计，每 AP 预算为 `floor(max(0, Mobility))`；默认 6，即代价 1～6 消耗 1AP，7～12 消耗 2AP。剩余 1AP 时只有蓝色范围。半障碍可作为路径中间格，友军可穿过，敌军不可穿过。预览只读，松开后重新验证才提交，不能使用旧预览绕过当前障碍、占用或 AP。
+
+玩家的 `MoveAbility` 由场景管理器自动授予；可通过 `TryGetMovePlan(cell, out plan, out reason)` 查询只读路径、代价和 AP 费用，再通过 `unit.Abilities.TryActivate("Move", AbilityTarget.ForCell(cell), out reason)` 执行。目标相关费用通过 `GetActionPointCost` 查询，`TryCommit` 允许自定义能力拒绝提交，固定费用能力继续使用原有 Commit 钩子。
+
+逻辑占用和 AP 先提交，`UnitVisualController` 再沿路径插值。它仅处理平移、模型转向、起伏及选中圈，模型引用、每秒格数（默认 4）、转向时间和起伏幅度均可配置。表现结束前持有独占能力和 Moving 标记，期间不能再发移动或结束回合。已提交移动被禁用、取消时对齐终点，不返还 AP；单位死亡或销毁会释放占用和回合注册。
+
+点击 `END TURN` 结束玩家回合；敌方目前只占格、不行动，下帧直接返回玩家并补满 AP。AP 耗尽不会自动切回合。HUD 的状态、提示、取消区域和结束按钮使用 uGUI，按安全区域布局；`BattleCameraController` 固定斜俯视并按比例容纳棋盘，暂不包含镜头拖动或缩放。
+
+`InputSystem_Actions` 中新增 Battle/Point 与 Battle/Press，不启用模板 Player 动作来控制战斗。`BattleInputReader` 封装设备与手势，`BattlePlayerController` 负责选择、平面拾取和能力请求；UI 使用 InputSystemUIInputModule，仅接入 Point / Click。替换模型时保留 Prefab 根节点和逻辑组件，将模型子节点重新赋给 UnitVisualController。
+
+PlayMode 流程测试：`unity command "test run" --mode playmode --filter Wargame.PlayModeTests --filter_type assembly`，覆盖 Prefab 出生、鼠标和触屏拖动、UI 取消、失焦、多指、表现中断及回合循环。

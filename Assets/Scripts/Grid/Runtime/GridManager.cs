@@ -35,6 +35,16 @@ namespace Wargame.GridSystem
         private GridCell[,] cells;
         private float initializedCellSize;
 
+        /// <summary>运行时地形或占用变化后触发，预览应重新查询。</summary>
+        public event Action Changed;
+        public int Revision { get; private set; }
+
+        private void NotifyChanged()
+        {
+            Revision++;
+            Changed?.Invoke();
+        }
+
         /// <summary>棋盘是否已创建运行时数据。</summary>
         public bool IsInitialized => cells != null;
 
@@ -256,10 +266,11 @@ namespace Wargame.GridSystem
         {
             if ((uint)state > (uint)BlockState.FullBlocked ||
                 !TryGetCell(coordinates, out GridCell cell) ||
-                (state == BlockState.FullBlocked && cell.Occupant != null))
+                (state != BlockState.Unblocked && cell.Occupant != null))
                 return false;
 
             cell.SetBlockState(state);
+            NotifyChanged();
             return true;
         }
 
@@ -275,6 +286,7 @@ namespace Wargame.GridSystem
                 return false;
 
             cell.SetCover(direction, cover);
+            NotifyChanged();
 
             return true;
         }
@@ -290,6 +302,7 @@ namespace Wargame.GridSystem
                 return false;
 
             cell.SetMoveCost(moveCost);
+            NotifyChanged();
             return true;
         }
 
@@ -300,11 +313,12 @@ namespace Wargame.GridSystem
         public bool TryPlaceUnit(Unit unit, Vector2Int coordinates)
         {
             if (unit == null || !TryGetCell(coordinates, out GridCell cell) ||
-                cell.BlockState == BlockState.FullBlocked || cell.Occupant != null ||
+                cell.BlockState != BlockState.Unblocked || cell.Occupant != null ||
                 FindUnitCell(unit) != null)
                 return false;
 
             cell.Occupant = unit;
+            NotifyChanged();
             return true;
         }
 
@@ -318,6 +332,7 @@ namespace Wargame.GridSystem
                 return false;
 
             cell.Occupant = null;
+            NotifyChanged();
             return true;
         }
 
@@ -329,7 +344,7 @@ namespace Wargame.GridSystem
         {
             GridCell source = FindUnitCell(unit);
             if (source == null || !TryGetCell(destination, out GridCell target) ||
-                target.BlockState == BlockState.FullBlocked)
+                target.BlockState != BlockState.Unblocked)
                 return false;
             if (source == target)
                 return true;
@@ -338,6 +353,7 @@ namespace Wargame.GridSystem
 
             source.Occupant = null;
             target.Occupant = unit;
+            NotifyChanged();
             return true;
         }
 
@@ -349,6 +365,12 @@ namespace Wargame.GridSystem
         /// <exception cref="ArgumentOutOfRangeException">预算为负数或起点越界。</exception>
         /// <exception cref="ArgumentException">起点是全障碍格。</exception>
         public GridReachabilityResult GetReachableCells(Vector2Int start, int movementBudget)
+        {
+            return GetReachableCells(start, movementBudget, null);
+        }
+
+        /// <summary>带单位身份的搜索：仅可穿过同阵营占用格；半障碍可穿过但不可停留。</summary>
+        public GridReachabilityResult GetReachableCells(Vector2Int start, int movementBudget, Unit mover)
         {
             EnsureInitialized();
             if (movementBudget < 0)
@@ -373,6 +395,8 @@ namespace Wargame.GridSystem
                     Vector2Int next = current + offset;
                     if (!TryGetCell(next, out GridCell neighbor) ||
                         neighbor.BlockState == BlockState.FullBlocked ||
+                        (mover != null && neighbor.Occupant != null && neighbor.Occupant != mover &&
+                         neighbor.Occupant.Faction != mover.Faction) ||
                         neighbor.MoveCost <= 0 ||
                         neighbor.MoveCost > movementBudget - currentCost)
                         continue;
@@ -390,7 +414,8 @@ namespace Wargame.GridSystem
             var reachable = new Dictionary<Vector2Int, int>();
             foreach (KeyValuePair<Vector2Int, int> pair in costs)
             {
-                if (pair.Key != start && cells[pair.Key.x, pair.Key.y].Occupant == null)
+                if (pair.Key != start && cells[pair.Key.x, pair.Key.y].Occupant == null &&
+                    cells[pair.Key.x, pair.Key.y].BlockState == BlockState.Unblocked)
                     reachable.Add(pair.Key, pair.Value);
             }
 
@@ -412,6 +437,14 @@ namespace Wargame.GridSystem
             }
 
             return null;
+        }
+
+        /// <summary>读取逻辑坐标，不依赖正在插值的 Transform。</summary>
+        public bool TryGetUnitCoordinates(Unit unit, out Vector2Int coordinates)
+        {
+            GridCell cell = FindUnitCell(unit);
+            coordinates = cell == null ? default : cell.Coordinates;
+            return cell != null;
         }
 
         /// <summary>确保需要完整棋盘数据的查询在初始化后执行。</summary>

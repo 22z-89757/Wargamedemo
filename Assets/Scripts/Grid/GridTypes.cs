@@ -16,7 +16,7 @@ namespace Wargame.GridSystem
     {
         /// <summary>无障碍，可以通行。</summary>
         Unblocked,
-        /// <summary>半障碍，可以通行，供后续翻越表现使用。</summary>
+        /// <summary>半障碍，只可穿过，不可作为出生或移动终点。</summary>
         HalfBlocked,
         /// <summary>全障碍，禁止通行。</summary>
         FullBlocked
