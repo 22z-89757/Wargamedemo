@@ -293,6 +293,80 @@ namespace Wargame.Tests
         }
 
         [UnityTest]
+        public IEnumerator InspectorCameraSettingsSurviveInitializationAndButtonRotation()
+        {
+            var rig = battle.CameraRig;
+            var brain = view.GetComponent<CinemachineBrain>();
+            var virtualCamera = Object.FindFirstObjectByType<CinemachineCamera>();
+            var follow = virtualCamera.GetComponent<CinemachineFollow>();
+            Transform pitch = virtualCamera.Follow;
+            Transform center = pitch.parent;
+            rig.Shutdown();
+            center.rotation = Quaternion.Euler(0, 123, 0);
+            pitch.localRotation = Quaternion.Euler(62, 0, 0);
+            follow.FollowOffset = new Vector3(0, 0, -18.5f);
+            virtualCamera.Lens.FieldOfView = 51;
+            virtualCamera.Lens.NearClipPlane = .25f;
+            virtualCamera.Lens.FarClipPlane = 350;
+            brain.IgnoreTimeScale = false;
+            brain.DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.EaseInOut, .15f);
+            Vector3 focus = battle.Grid.GridToWorld(new Vector2Int(30, 20));
+            rig.Initialize(battle.Grid, focus, controller);
+            yield return SettleFrame();
+            Quaternion configuredRotation = Quaternion.Euler(0, 123, 0) * Quaternion.Euler(62, 0, 0);
+            Assert.That(Quaternion.Angle(view.transform.rotation, configuredRotation), Is.LessThan(.01f));
+            Assert.That(view.transform.position.y - focus.y, Is.EqualTo(18.5f * Mathf.Sin(62 * Mathf.Deg2Rad)).Within(.003f));
+            Assert.That(view.fieldOfView, Is.EqualTo(51).Within(.001f));
+            Assert.That(view.nearClipPlane, Is.EqualTo(.25f).Within(.001f));
+            Assert.That(view.farClipPlane, Is.EqualTo(350).Within(.001f));
+            Assert.That(virtualCamera.Follow, Is.SameAs(pitch));
+            Assert.That(follow.FollowOffset.z, Is.EqualTo(-18.5f));
+            Assert.That(brain.IgnoreTimeScale, Is.False);
+            Assert.That(brain.DefaultBlend.Style, Is.EqualTo(CinemachineBlendDefinition.Styles.EaseInOut));
+            Assert.That(brain.DefaultBlend.Time, Is.EqualTo(.15f));
+
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.RotateLeftButton.onClick.GetPersistentTarget(0), Is.SameAs(rig));
+            Assert.That(hud.RotateRightButton.onClick.GetPersistentTarget(0), Is.SameAs(rig));
+            hud.RotateLeftButton.onClick.Invoke();
+            Assert.That(rig.IsRotating, Is.True);
+            hud.RotateRightButton.onClick.Invoke(); // 同一帧重复点击也必须拦截。
+            yield return new WaitForSecondsRealtime(.4f);
+            yield return SettleFrame();
+            Assert.That(Quaternion.Angle(view.transform.rotation, Quaternion.Euler(0, -90, 0) * configuredRotation), Is.LessThan(.01f));
+            Assert.That(Vector3.Distance(rig.ViewCenter, focus), Is.LessThan(.003f));
+            hud.RotateRightButton.onClick.Invoke();
+            yield return new WaitForSecondsRealtime(.4f);
+            yield return SettleFrame();
+            Assert.That(Quaternion.Angle(view.transform.rotation, configuredRotation), Is.LessThan(.01f));
+            Assert.That(view.fieldOfView, Is.EqualTo(51).Within(.001f));
+        }
+
+        [UnityTest]
+        public IEnumerator InvalidInspectorCameraSettingsAreRejectedWithoutBeingRewritten()
+        {
+            var rig = battle.CameraRig;
+            var brain = view.GetComponent<CinemachineBrain>();
+            var virtualCamera = Object.FindFirstObjectByType<CinemachineCamera>();
+            rig.Shutdown();
+            brain.UpdateMethod = CinemachineBrain.UpdateMethods.SmartUpdate;
+            Assert.That(rig.ValidateConfiguration(out string error), Is.False);
+            StringAssert.Contains("ManualUpdate", error);
+            Assert.Throws<System.InvalidOperationException>(() => rig.Initialize(battle.Grid, player.transform.position, controller));
+            Assert.That(rig.IsInitialized, Is.False);
+            Assert.That(brain.UpdateMethod, Is.EqualTo(CinemachineBrain.UpdateMethods.SmartUpdate));
+            brain.UpdateMethod = CinemachineBrain.UpdateMethods.ManualUpdate;
+            Transform target = virtualCamera.Follow;
+            virtualCamera.Follow = null;
+            Assert.That(rig.ValidateConfiguration(out _), Is.False);
+            Assert.That(virtualCamera.Follow, Is.Null);
+            virtualCamera.Follow = target;
+            rig.Initialize(battle.Grid, player.transform.position, controller);
+            yield return SettleFrame();
+            Assert.That(rig.IsInitialized, Is.True);
+        }
+
+        [UnityTest]
         public IEnumerator PerspectiveOrbitKeepsCenterHeightAndLens()
         {
             yield return PlaceCameraAndPlayerInInterior();

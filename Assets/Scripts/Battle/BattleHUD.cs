@@ -18,7 +18,6 @@ namespace Wargame.Battle
         private BattleSceneManager scene;
         private Rect lastSafeArea;
         private Vector2Int lastResolution;
-        private float lastLayoutWidth;
         public RectTransform CancelArea => cancelArea;
         public Button EndTurnButton => endTurnButton;
         public Button RotateLeftButton => rotateLeftButton;
@@ -39,14 +38,10 @@ namespace Wargame.Battle
                 endTurnButton.onClick.AddListener(EndTurn);
             }
             if (cancelArea != null) cancelArea.gameObject.SetActive(false);
-            if (rotateLeftButton != null) rotateLeftButton.onClick.AddListener(RotateLeft);
-            if (rotateRightButton != null) rotateRightButton.onClick.AddListener(RotateRight);
             ApplySafeArea();
         }
 
         private void EndTurn() { if (scene != null) scene.TryEndPlayerTurn(); }
-        private void RotateLeft() { if (scene != null) scene.CameraRig.TryRotate(-1); }
-        private void RotateRight() { if (scene != null) scene.CameraRig.TryRotate(1); }
         public bool IsCancelArea(Vector2 screenPoint) => cancelArea != null && cancelArea.gameObject.activeInHierarchy &&
             RectTransformUtility.RectangleContainsScreenPoint(cancelArea, screenPoint);
 
@@ -78,7 +73,6 @@ namespace Wargame.Battle
                 if (endTurnButton != null) endTurnButton.interactable = scene.CanEndPlayerTurn;
             }
             if (lastSafeArea != Screen.safeArea || lastResolution != new Vector2Int(Screen.width, Screen.height)) ApplySafeArea();
-            if (safeArea != null && !Mathf.Approximately(lastLayoutWidth, safeArea.rect.width)) ApplyResponsiveLayout();
         }
 
         private void ApplySafeArea()
@@ -89,32 +83,11 @@ namespace Wargame.Battle
             safeArea.anchorMin = new Vector2(lastSafeArea.xMin / Screen.width, lastSafeArea.yMin / Screen.height);
             safeArea.anchorMax = new Vector2(lastSafeArea.xMax / Screen.width, lastSafeArea.yMax / Screen.height);
             safeArea.offsetMin = safeArea.offsetMax = Vector2.zero;
-            ApplyResponsiveLayout();
-        }
-
-        private void ApplyResponsiveLayout()
-        {
-            lastLayoutWidth = safeArea.rect.width;
-            bool narrow = lastLayoutWidth < 1000;
-            if (rotateLeftButton != null)
-                ((RectTransform)rotateLeftButton.transform).anchoredPosition = new Vector2(20, 22);
-            if (rotateRightButton != null)
-                ((RectTransform)rotateRightButton.transform).anchoredPosition = new Vector2(128, 22);
-            if (hintText != null)
-            {
-                var panel = (RectTransform)hintText.transform.parent;
-                panel.anchorMin = panel.anchorMax = panel.pivot = Vector2.zero;
-                panel.sizeDelta = new Vector2(Mathf.Max(200, Mathf.Min(650, lastLayoutWidth - 40)), narrow ? 100 : 82);
-                panel.anchoredPosition = new Vector2(20, 108);
-            }
-            if (cancelArea != null) cancelArea.anchoredPosition = new Vector2(0, 226);
         }
 
         private void OnDestroy()
         {
             if (endTurnButton != null) endTurnButton.onClick.RemoveListener(EndTurn);
-            if (rotateLeftButton != null) rotateLeftButton.onClick.RemoveListener(RotateLeft);
-            if (rotateRightButton != null) rotateRightButton.onClick.RemoveListener(RotateRight);
         }
     }
 }

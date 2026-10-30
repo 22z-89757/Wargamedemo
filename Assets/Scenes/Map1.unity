@@ -1737,7 +1737,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineBrain
   ShowDebugText: 0
   ShowCameraFrustum: 1
-  IgnoreTimeScale: 0
+  IgnoreTimeScale: 1
   WorldUpOverride: {fileID: 0}
   ChannelMask: -1
   UpdateMethod: 3
@@ -3966,7 +3966,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 670127910}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 886277646}
+        m_TargetAssemblyTypeName: Wargame.Battle.BattleCameraRig, Wargame.Runtime
+        m_MethodName: Rotate
+        m_Mode: 3
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: -1
+          m_FloatArgument: 0
+          m_StringArgument:
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1001 &671648858
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4570,14 +4582,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0fdfbde7f1a967428d57ffc5364ae15, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Wargame.Runtime::Wargame.Battle.BattleCameraRig
-  outputCamera: {fileID: 330585545}
+  brain: {fileID: 330585548}
   virtualCamera: {fileID: 553199255}
   centerAxis: {fileID: 1137270076}
-  pitchTarget: {fileID: 372975445}
-  fieldOfView: 45
-  pitch: 55
-  initialYaw: 45
-  heightInCells: 12
   rotationDuration: 0.3
   edgeBandFraction: 0.06
   edgeSpeedInCells: 8
@@ -28005,7 +28012,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1207740609}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 886277646}
+        m_TargetAssemblyTypeName: Wargame.Battle.BattleCameraRig, Wargame.Runtime
+        m_MethodName: Rotate
+        m_Mode: 3
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 1
+          m_FloatArgument: 0
+          m_StringArgument:
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &1223683683
 GameObject:
   m_ObjectHideFlags: 0

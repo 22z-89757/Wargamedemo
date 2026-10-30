@@ -115,3 +115,7 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# 忽略 AI 工具的本地配置
+.claude/
+.agents/
