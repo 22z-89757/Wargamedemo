@@ -3,11 +3,11 @@ using UnityEngine;
 namespace Wargame.GridSystem
 {
     /// <summary>将运行时 GridManager 适配为只读视线地图。</summary>
-    public sealed class GridLineOfSightMap : ILineOfSightMap
+    public sealed class GridLineOfSightMapModifier : ILineOfSightMap
     {
         private readonly GridManager grid;
 
-        public GridLineOfSightMap(GridManager grid)
+        public GridLineOfSightMapModifier(GridManager grid)
         {
             this.grid = grid;
         }

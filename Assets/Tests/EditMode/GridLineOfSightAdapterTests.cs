@@ -10,7 +10,7 @@ namespace Wargame.Tests
     {
         private GameObject root;
         private GridManager grid;
-        private GridLineOfSightMap map;
+        private GridLineOfSightMapModifier _mapModifier;
 
         [SetUp]
         public void SetUp()
@@ -18,7 +18,7 @@ namespace Wargame.Tests
             root = new GameObject("LOS Grid Test");
             grid = root.AddComponent<GridManager>();
             grid.Initialize(5, 5);
-            map = new GridLineOfSightMap(grid);
+            _mapModifier = new GridLineOfSightMapModifier(grid);
         }
 
         [TearDown]
@@ -31,13 +31,13 @@ namespace Wargame.Tests
             Vector2Int to = new Vector2Int(4, 2);
             Vector2Int middle = new Vector2Int(2, 2);
 
-            Assert.That(GridLineOfSight.HasLineOfSight(map, from, to), Is.True);
+            Assert.That(GridLineOfSight.HasLineOfSight(_mapModifier, from, to), Is.True);
             Assert.That(grid.TrySetBlockState(middle, BlockState.HalfBlocked), Is.True);
-            Assert.That(GridLineOfSight.HasLineOfSight(map, from, to), Is.True);
+            Assert.That(GridLineOfSight.HasLineOfSight(_mapModifier, from, to), Is.True);
             Assert.That(grid.TrySetBlockState(middle, BlockState.FullBlocked), Is.True);
-            Assert.That(GridLineOfSight.HasLineOfSight(map, from, to), Is.False);
+            Assert.That(GridLineOfSight.HasLineOfSight(_mapModifier, from, to), Is.False);
             Assert.That(grid.TrySetBlockState(middle, BlockState.Unblocked), Is.True);
-            Assert.That(GridLineOfSight.HasLineOfSight(map, from, to), Is.True);
+            Assert.That(GridLineOfSight.HasLineOfSight(_mapModifier, from, to), Is.True);
         }
 
         [Test]
@@ -50,18 +50,18 @@ namespace Wargame.Tests
 
             Assert.That(grid.TryPlaceUnit(unit, occupied), Is.True);
             Assert.That(grid.TrySetCover(covered, GridDirection.West, CoverType.FullCover), Is.True);
-            Assert.That(GridLineOfSight.HasLineOfSight(map, new Vector2Int(0, 2), new Vector2Int(4, 2)), Is.True);
+            Assert.That(GridLineOfSight.HasLineOfSight(_mapModifier, new Vector2Int(0, 2), new Vector2Int(4, 2)), Is.True);
         }
 
         [Test]
         public void NullGridAndUninitializedGridHaveNoVisibleCells()
         {
-            Assert.That(new GridLineOfSightMap(null).Contains(Vector2Int.zero), Is.False);
+            Assert.That(new GridLineOfSightMapModifier(null).Contains(Vector2Int.zero), Is.False);
             var uninitializedObject = new GameObject("Uninitialized LOS Grid");
             try
             {
                 var uninitializedGrid = uninitializedObject.AddComponent<GridManager>();
-                Assert.That(GridLineOfSight.HasLineOfSight(new GridLineOfSightMap(uninitializedGrid),
+                Assert.That(GridLineOfSight.HasLineOfSight(new GridLineOfSightMapModifier(uninitializedGrid),
                     Vector2Int.zero, Vector2Int.zero), Is.False);
             }
             finally
