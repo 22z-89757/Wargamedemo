@@ -55,7 +55,7 @@ bool visible = GridLineOfSight.HasLineOfSight(lineOfSightMap,
 
 目标的距离条件只受攻击者当前 `AttributeType.SightRange` 限制，视线由 LOS 决定，没有独立武器射程。统一逻辑格距为 `floor(sqrt(dx² + dy²))`，同时用于视野比较和曲线采样，例如 `(1,1)` 为 1 格，`(3,4)` 为 5 格；等于 SightRange 时满足距离条件。这不改变移动寻路算法。开火前再次检查存活、非中立敌对阵营、棋盘登记、SightRange、LOS、必要属性、回合和 AP，重新计算概率；准备期间参数改变或随机源异常时拒绝提交，不扣 AP。
 
-射击先检查攻击者当前格到目标当前格的 LOS；被阻挡时，再从攻击者周围 8 个相邻格尝试射线，任一畅通即可探头射击。越界或 `FullBlocked` 的相邻格不能作为起点；半障碍和单位占用不影响候选。目标端点固定在目标当前格，双方逻辑坐标、占格与 Transform 均不因探头改变，SightRange、命中率和结果距离仍按双方实际格距计算。每条候选继续使用通用 LOS 的 supercover 与格角保守规则；开火时重新检查，所有候选被封锁后拒绝射击且不扣 AP。
+射击先检查攻击者当前格到目标当前格的 LOS；被阻挡时，再从攻击者周围上下左右 4 个相邻格尝试射线，任一畅通即可探头射击。对角相邻格不作为候选。越界或 `FullBlocked` 的相邻格不能作为起点；半障碍和单位占用不影响候选。目标端点固定在目标当前格，双方逻辑坐标、占格与 Transform 均不因探头改变，SightRange、命中率和结果距离仍按双方实际格距计算。每条候选继续使用通用 LOS 的 supercover 与格角保守规则；开火时重新检查，所有候选被封锁后拒绝射击且不扣 AP。
 
 `Assets/Data/Game/GameSettings.asset` 是默认配置，`Map1` 的 BattleSceneManager 通过 `gameSettings` 字段显式引用；可用 Create → Wargame → Game Settings 创建其他资产并替换场景引用。配置类位于 `Battle/Data`：GameSettings 是 ScriptableObject，其 `ShootSettings` 字段内嵌 `[Serializable] ShootSettings`，不是另一个 SO。`DistanceHitChanceModifier` 为 AnimationCurve，X 是递增非负整数格距，Y 是命中率修正百分点。Inspector 校验将切线统一为 Constant、首尾保持端点，运行时能力创建独立只读快照，不修改资产；配置调整在下一次初始化生效。缺失或非法配置会明确报告错误，不做隐式资源查找或回退。
 
@@ -190,3 +190,19 @@ Map1 使用 Cinemachine 3.1.7：MainCamera 保留渲染、URP 与 AudioListener�
 PlayMode 流程测试：`unity command "test run" --mode playmode --filter Wargame.PlayModeTests --filter_type assembly --async_tests`，启动后用 `unity command "test status"` 查询完成状态和结果。进入 PlayMode 会触发域重载，因此当前 Pipeline 版本不支持在同一个 HTTP 请求中同步等待 PlayMode 测试。测试覆盖 Prefab 出生、鼠标和触屏拖动、UI 取消、失焦、多指、表现中断、回合循环及射击目标选择与开火。
 
 使用 `--json` 时，命令外层的 `success` 只代表命令请求成功；仍需检查内层测试结果的 `success`、`Summary` 或异步状态文件的完成结果，避免将测试启动失败或超时误判为通过。
+
+### 单位浮动血条
+
+`Assets/Prefabs/UI/UnitHealthBar.prefab` 使用固定基础尺寸的 `UnitHealthBarView`，由 Background、RedFill 和 Dividers 三个子节点组成。Dividers 用一个带 CanvasRenderer 的 `UnitHealthBarDividers` Graphic 绘制全部等分线，不为每格创建物体。RedFill 使用同目录的纯白像素 `HealthBarWhite.png` 作为 Sprite，并通过 Image 颜色显示矩形红色填充。预制体没有 Canvas，全部 Graphic 关闭 raycastTarget。
+
+`UnitHealthBarDividers` 在水平 Overlay 血条上按最终屏幕像素绘制：把经过 CanvasScaler 和距离缩放的线宽统一取整为至少 1 像素，再对齐线条边缘。渲染前检测自身及父级变换，位置或缩放变化时重建刻度网格，避免亚像素导致同一血条内线条粗细不一；分格的逻辑位置保持等分，最终显示位置最多偏移半个像素。
+
+底层 Health、MaxHealth 保留 float；显示总格数 `N = ceil(MaxHealth)`，红格数 `K = ceil(clamp(Health / MaxHealth, 0, 1) * N)`，红色宽度为 `K / N`。只显示完整格子，不做宽度插值：`7.5/10` 显示 8 格，`7/10` 显示 7 格，任何正生命值至少显示 1 格。小数最大生命值先按比例换算，例如 `2/7.5` 显示 8 格中的 3 格。无效最大生命值隐藏血条；显示取整不会回写生命属性、伤害或死亡状态。
+
+`UnitHealthBarSettings` 配置 `BaseSize`（Canvas 逻辑尺寸，默认 96×10）、`WorldOffset`（世界竖直偏移，默认 2）、`NearDistance/FarDistance`（默认 10/30）和 `NearScale/FarScale`（默认 1.1/0.65）。距离缩放按 `lerp(NearScale, FarScale, clamp01((distance-NearDistance)/(FarDistance-NearDistance)))` 计算。尺寸必须为正，偏移非负，距离阈值和比例均有限并满足近距离小于远距离、近端比例大于远端比例且远端比例大于零。
+
+Map1 的根级 `UnitHealthBarCanvas` 独立于 `BattleUICanvas`，使用 Screen Space Overlay、sortingOrder -1；CanvasScaler 与 HUD 一致（Scale With Screen Size、1280×720、Match Width Or Height 0.5）。该节点的 `BattleUnitHealthBars.healthCanvas` 引用自身 Canvas，`viewPrefab` 引用上述预制体，GameManager 的 `BattleSceneManager.healthBars` 显式引用此组件。血条 Canvas 不挂 GraphicRaycaster，不创建额外 EventSystem；HUD 排序为 0，因此仍覆盖血条并正常接收输入。
+
+场景在生成单位前验证血条装配，初始化相机后调用 `healthBars.Initialize(this, cameraRig.OutputCamera)`。血条层按 `SpawnedUnits` 中非空且存活的单位维护唯一视图，包含双方和未选中单位；回合、AP 和能力可用性不影响资格。`scene.Changed` 协调单位集合，单位的 Health/MaxHealth 事件只标记待刷新，在呈现前读取最终快照。死亡或销毁立即解绑并隐藏对应视图；禁用血条层会释放全部绑定，重新启用从当前存活集合重建。重复 Initialize/Refresh 不重复建条。战斗清理和初始化异常先 Shutdown 血条层，再关闭相机、解除单位订阅并销毁单位，避免旧绑定残留。
+
+`BattleUnitHealthBars` 使用执行顺序 +100 的 LateUpdate，晚于执行顺序 -100 的 `BattleCameraRig` 手动更新 Cinemachine；每帧投影 `unit.transform.position + Vector3.up * WorldOffset`，跟随移动动画的实际位置。Overlay 坐标通过 RectTransformUtility 转换，不直接将屏幕像素当作 anchoredPosition。血条始终屏幕水平；锚点在视口或相机裁剪范围外时隐藏，返回后显示最新生命值，不吸附屏幕边缘，也不检查墙体或射击 LOS。基础尺寸控制统一长度，Near/Far 参数控制近大远小的幅度，WorldOffset 用于替换模型后调整头顶高度。

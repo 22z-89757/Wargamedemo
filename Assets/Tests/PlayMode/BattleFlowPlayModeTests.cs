@@ -8,6 +8,7 @@ using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 using Unity.Cinemachine;
 using Wargame.Battle;
 using Wargame.Units;
@@ -90,6 +91,217 @@ namespace Wargame.Tests
             view = Camera.main;
             Physics.SyncTransforms();
             Canvas.ForceUpdateCanvases();
+        }
+
+        [UnityTest]
+        public IEnumerator LivingPlayersAndEnemiesKeepOneHealthBarThroughTurnsAndAp()
+        {
+            var bars = battle.HealthBars;
+            Assert.That(bars, Is.Not.Null);
+            Assert.That(bars.ViewCount, Is.EqualTo(battle.SpawnedUnits.Count));
+            Assert.That(bars.TryGetView(player, out var playerBar), Is.True);
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            Assert.That(bars.TryGetView(enemy, out var enemyBar), Is.True);
+            Assert.That(playerBar.TotalSegments, Is.EqualTo(10));
+            Assert.That(playerBar.FilledSegments, Is.EqualTo(10));
+            Assert.That(enemyBar.FilledSegments, Is.EqualTo(10));
+            player.Attributes.SetBaseValue(AttributeType.Health, 7.5f);
+            yield return SettleFrame();
+            Assert.That(player.Attributes.GetValue(AttributeType.Health), Is.EqualTo(7.5f));
+            Assert.That(playerBar.FilledSegments, Is.EqualTo(8));
+            player.Attributes.SetBaseValue(AttributeType.Health, 7.1f);
+            yield return SettleFrame();
+            Assert.That(playerBar.FilledSegments, Is.EqualTo(8));
+            player.Attributes.SetBaseValue(AttributeType.Health, 7f);
+            yield return SettleFrame();
+            Assert.That(playerBar.FilledSegments, Is.EqualTo(7));
+            player.Attributes.SetBaseValue(AttributeType.ActionPoints, 0);
+            Assert.That(battle.TryEndPlayerTurn(), Is.True);
+            yield return SettleFrame();
+            Assert.That(bars.ViewCount, Is.EqualTo(2));
+            Assert.That(bars.TryGetView(player, out _), Is.True);
+            Assert.That(bars.TryGetView(enemy, out _), Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator HealthBarFollowsActualTransformAndRemovesOnDeath()
+        {
+            Assert.That(battle.HealthBars.TryGetView(player, out var bar), Is.True);
+            Vector2 before = view.WorldToScreenPoint(player.transform.position + Vector3.up * battle.HealthBars.Settings.WorldOffset);
+            player.Attributes.SetBaseValue(AttributeType.Health, .1f);
+            yield return SettleFrame();
+            Assert.That(bar.FilledSegments, Is.EqualTo(1));
+            Vector3 start = player.transform.position;
+            player.transform.position += Vector3.right * 2;
+            yield return SettleFrame();
+            Vector2 after = view.WorldToScreenPoint(player.transform.position + Vector3.up * battle.HealthBars.Settings.WorldOffset);
+            Assert.That(Vector2.Distance(before, after), Is.GreaterThan(1));
+            player.Attributes.SetBaseValue(AttributeType.Health, 0);
+            yield return SettleFrame();
+            Assert.That(battle.HealthBars.TryGetView(player, out _), Is.False);
+            player.transform.position = start;
+        }
+
+        [UnityTest]
+        public IEnumerator HealthBarDoesNotBlockPointerInput()
+        {
+            yield return PlaceCameraAndPlayerInInterior();
+            battle.HealthBars.Settings.WorldOffset = .75f;
+            yield return SettleFrame();
+            Assert.That(battle.HealthBars.HealthCanvas.GetComponent<GraphicRaycaster>(), Is.Null);
+            Assert.That(battle.HealthBars.GetComponentsInChildren<Graphic>(true).All(g => !g.raycastTarget), Is.True);
+            var input = Object.FindFirstObjectByType<BattleInputReader>();
+            Vector2 point = view.WorldToScreenPoint(player.transform.position + Vector3.up * battle.HealthBars.Settings.WorldOffset);
+            Assert.That(input.IsOverUI(point), Is.False);
+            Set(mouse.position, point); Press(mouse.leftButton);
+            yield return SettleFrame();
+            Assert.That(controller.SelectedUnit, Is.SameAs(player));
+            Release(mouse.leftButton);
+            yield return SettleFrame();
+            Assert.That(controller.HasActiveGesture, Is.False);
+            BeginTouch(1, point, touch);
+            yield return SettleFrame();
+            Assert.That(controller.IsDragging, Is.True);
+            EndTouch(1, point, touch);
+            yield return SettleFrame();
+            Assert.That(controller.HasActiveGesture, Is.False);
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            var button = (RectTransform)hud.EndTurnButton.transform;
+            Vector2 buttonPoint = RectTransformUtility.WorldToScreenPoint(null, button.position);
+            Assert.That(input.IsOverUI(buttonPoint), Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator HealthBarsRebuildOnlyWhenNeededAndUseFinalMaxHealth()
+        {
+            var bars = battle.HealthBars;
+            bars.TryGetView(player, out var original);
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.That(battle.TryInitialize(out _), Is.True);
+                bars.Initialize(battle, view);
+                bars.Refresh();
+            }
+            Assert.That(bars.ViewCount, Is.EqualTo(2));
+            bars.TryGetView(player, out var same);
+            Assert.That(same, Is.SameAs(original));
+            player.Attributes.SetBaseValue(AttributeType.MaxHealth, 7.5f);
+            player.Attributes.SetBaseValue(AttributeType.Health, 3.75f);
+            yield return SettleFrame();
+            Assert.That(original.TotalSegments, Is.EqualTo(8));
+            Assert.That(original.FilledSegments, Is.EqualTo(4));
+            Assert.That(player.Attributes.GetValue(AttributeType.Health), Is.EqualTo(3.75f));
+            bars.enabled = false;
+            Assert.That(bars.ViewCount, Is.Zero);
+            player.Attributes.SetBaseValue(AttributeType.MaxHealth, 2);
+            yield return SettleFrame();
+            Assert.That(original == null, Is.True);
+            bars.enabled = true;
+            yield return SettleFrame();
+            Assert.That(bars.TryGetView(player, out var rebuilt), Is.True);
+            Assert.That(rebuilt.TotalSegments, Is.EqualTo(2));
+            Assert.That(rebuilt.FilledSegments, Is.EqualTo(2));
+            Assert.That(bars.ViewCount, Is.EqualTo(2));
+            player.Attributes.SetBaseValue(AttributeType.Health, 1.1f);
+            yield return SettleFrame();
+            Assert.That(rebuilt.FilledSegments, Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator HealthBarsReleaseDestroyedUnitsAndSceneBindings()
+        {
+            var oldBars = battle.HealthBars;
+            oldBars.TryGetView(player, out var oldView);
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            oldBars.TryGetView(enemy, out var enemyView);
+            Object.Destroy(enemy.gameObject);
+            yield return SettleFrame();
+            Assert.That(oldBars.ViewCount, Is.EqualTo(1));
+            Assert.That(enemyView == null, Is.True);
+            oldBars.Refresh();
+            Assert.That(oldBars.ViewCount, Is.EqualTo(1));
+            yield return SceneManager.LoadSceneAsync("Map1", LoadSceneMode.Single);
+            yield return SettleFrame();
+            Assert.That(oldBars == null, Is.True);
+            Assert.That(oldView == null, Is.True);
+            battle = Object.FindFirstObjectByType<BattleSceneManager>();
+            controller = Object.FindFirstObjectByType<BattlePlayerController>();
+            player = battle.SpawnedUnits.First(u => u.Faction == Faction.Player);
+            view = battle.CameraRig.OutputCamera;
+            Assert.That(battle.HealthBars.ViewCount, Is.EqualTo(2));
+            player.Attributes.SetBaseValue(AttributeType.Health, 2.5f);
+            yield return SettleFrame();
+            battle.HealthBars.TryGetView(player, out var bar);
+            Assert.That(bar.FilledSegments, Is.EqualTo(3));
+        }
+
+        [UnityTest]
+        public IEnumerator HealthBarProjectionScaleAndViewportFollowCurrentCamera()
+        {
+            var bars = battle.HealthBars;
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            bars.TryGetView(enemy, out var bar);
+            foreach (float distance in new[] { 5f, 10f, 20f, 30f, 40f })
+            {
+                Vector3 anchor = view.transform.position + view.transform.forward * distance;
+                enemy.transform.position = anchor - Vector3.up * bars.Settings.WorldOffset;
+                yield return SettleFrame();
+                Assert.That(bar.gameObject.activeSelf, Is.True);
+                Assert.That(bar.Rect.localScale.x, Is.EqualTo(bars.Settings.GetScale(distance)).Within(.0001));
+                Vector2 screen = RectTransformUtility.WorldToScreenPoint(null, bar.Rect.position);
+                Assert.That(Vector2.Distance(screen, view.WorldToScreenPoint(anchor)), Is.LessThan(.75f));
+                Assert.That(bar.Rect.localRotation, Is.EqualTo(Quaternion.identity));
+            }
+            foreach (Vector3 viewport in new[] { new Vector3(.5f,.5f,-10), new Vector3(1.2f,.5f,10),
+                new Vector3(.5f,-.2f,10), new Vector3(.5f,.5f,view.nearClipPlane*.5f),
+                new Vector3(.5f,.5f,view.farClipPlane+10) })
+            {
+                enemy.transform.position = view.ViewportToWorldPoint(viewport) - Vector3.up * bars.Settings.WorldOffset;
+                yield return SettleFrame();
+                Assert.That(bar.gameObject.activeSelf, Is.False);
+            }
+            enemy.Attributes.SetBaseValue(AttributeType.Health, 4.2f);
+            enemy.transform.position = view.ViewportToWorldPoint(new Vector3(.5f,.5f,20)) - Vector3.up * bars.Settings.WorldOffset;
+            yield return SettleFrame();
+            Assert.That(bar.gameObject.activeSelf, Is.True);
+            Assert.That(bar.FilledSegments, Is.EqualTo(5));
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.transform.position = view.transform.position + view.transform.forward * 10;
+            wall.transform.localScale = Vector3.one * 2;
+            Physics.SyncTransforms();
+            Ray ray = new Ray(view.transform.position, view.transform.forward);
+            Assert.That(wall.GetComponent<Collider>().Raycast(ray, out _, 20), Is.True);
+            yield return SettleFrame();
+            Assert.That(bar.gameObject.activeSelf, Is.True, "墙体不额外筛选血条可见性");
+            Object.Destroy(wall);
+        }
+
+        [UnityTest]
+        public IEnumerator HealthBarTracksMovementAndCameraInTheSameFrame()
+        {
+            yield return PlaceCameraAndPlayerInInterior();
+            battle.HealthBars.TryGetView(player, out var bar);
+            var probe = player.gameObject.AddComponent<HealthBarFrameProbe>();
+            probe.Configure(player, bar, view, battle.HealthBars.Settings.WorldOffset);
+            var target = new Vector2Int(33,20);
+            for (int x = 31; x <= 33; x++) battle.Grid.TrySetBlockState(new Vector2Int(x,20), Wargame.GridSystem.BlockState.Unblocked);
+            Assert.That(player.Abilities.TryActivate("Move", AbilityTarget.ForCell(target), out var reason), Is.True, reason.ToString());
+            Assert.That(battle.Grid.TryGetUnitCoordinates(player, out var logical), Is.True);
+            Assert.That(logical, Is.EqualTo(target));
+            Assert.That(Vector3.Distance(player.transform.position, battle.Grid.GridToWorld(target)), Is.GreaterThan(1));
+            yield return WaitForMovement();
+            Assert.That(probe.Samples, Is.GreaterThan(3));
+            Assert.That(probe.MaxError, Is.LessThan(.75f));
+            Assert.That(battle.CameraRig.TryRotate(1), Is.True);
+            yield return new WaitForSecondsRealtime(.4f);
+            yield return SettleFrame();
+            var rig = battle.CameraRig;
+            Vector2 point = new Vector2(Screen.width*.5f,Screen.height*.5f);
+            Assert.That(rig.BeginPan(point), Is.True);
+            rig.DragPan(point + Vector2.right * 40, false);
+            rig.EndPan();
+            yield return SettleFrame();
+            Assert.That(probe.MaxError, Is.LessThan(.75f));
         }
 
         [UnityTearDown]

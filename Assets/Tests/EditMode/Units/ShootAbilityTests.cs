@@ -110,6 +110,26 @@ namespace Wargame.Tests
         }
 
         [Test]
+        public void DiagonalPeekOriginDoesNotAllowShot()
+        {
+            Vector2Int shooterPosition = new Vector2Int(4, 4);
+            Vector2Int targetPosition = new Vector2Int(10, 10);
+            Assert.That(grid.TryMoveUnit(shooter, shooterPosition), Is.True);
+            Assert.That(grid.TryMoveUnit(target, targetPosition), Is.True);
+            grid.TrySetBlockState(new Vector2Int(3, 4), BlockState.FullBlocked);
+            grid.TrySetBlockState(new Vector2Int(5, 4), BlockState.FullBlocked);
+            grid.TrySetBlockState(new Vector2Int(4, 3), BlockState.FullBlocked);
+            grid.TrySetBlockState(new Vector2Int(4, 5), BlockState.FullBlocked);
+
+            var map = new GridLineOfSightMapModifier(grid);
+            Assert.That(GridLineOfSight.HasLineOfSight(map, shooterPosition, targetPosition), Is.False);
+            Assert.That(GridLineOfSight.HasLineOfSight(map, new Vector2Int(5, 5), targetPosition), Is.True);
+            Assert.That(shoot.GetPreview(target).IsAvailable, Is.False);
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.False);
+            Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
+        }
+
+        [Test]
         public void RejectsShotWhenAllCurrentAndAdjacentLinesAreBlocked()
         {
             for (int y = 0; y < grid.Height; y++)

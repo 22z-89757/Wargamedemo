@@ -27,6 +27,7 @@ namespace Wargame.Battle
         [SerializeField] private BattleMovementPreview preview;
         [SerializeField] private BattleHUD hud;
         [SerializeField] private BattleCameraRig cameraRig;
+        [SerializeField] private BattleUnitHealthBars healthBars;
         [SerializeField] private bool startAutomatically = true;
         [SerializeField] private List<UnitSpawnEntry> playerSpawns = new List<UnitSpawnEntry>();
         [SerializeField] private List<UnitSpawnEntry> enemySpawns = new List<UnitSpawnEntry>();
@@ -38,6 +39,7 @@ namespace Wargame.Battle
         public GridManager Grid => grid;
         public BattleTurnManager Turns => turns;
         public BattleCameraRig CameraRig => cameraRig;
+        public BattleUnitHealthBars HealthBars => healthBars;
         public bool HasActiveGesture => playerController != null && playerController.HasActiveGesture;
         public IReadOnlyList<Unit> SpawnedUnits => spawned;
         public bool HasActiveAction
@@ -68,6 +70,8 @@ namespace Wargame.Battle
             if (gameSettings == null)
             { error = "需要显式引用 GameSettings 射击配置资产。"; return false; }
             if (!gameSettings.TryValidate(out error)) return false;
+            if (healthBars == null) { error = "需要独立 Canvas 上的 BattleUnitHealthBars 血条层。"; return false; }
+            if (!healthBars.ValidateConfiguration(hud.GetComponentInParent<Canvas>(), out error)) return false;
             if (turns.State != BattleState.NotStarted || turns.Units.Count != 0)
             { error = "回合管理器必须尚未开始且没有已注册单位。"; return false; }
             var occupied = new HashSet<Vector2Int>();
@@ -83,6 +87,7 @@ namespace Wargame.Battle
                 Spawn(playerSpawns, Faction.Player);
                 Spawn(enemySpawns, Faction.Enemy);
                 cameraRig.Initialize(grid, grid.GridToWorld(playerSpawns[0].Coordinates), playerController);
+                healthBars.Initialize(this, cameraRig.OutputCamera);
                 preview.Initialize(grid);
                 hud.Initialize(this);
                 turns.SetFactionOrder(new[] { Faction.Player, Faction.Enemy });
@@ -192,6 +197,7 @@ namespace Wargame.Battle
         private void Cleanup()
         {
             cleaning = true;
+            if (healthBars != null) healthBars.Shutdown();
             if (playerController != null) playerController.Shutdown();
             if (cameraRig != null) cameraRig.Shutdown();
             if (turns != null)

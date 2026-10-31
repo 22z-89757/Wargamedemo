@@ -1,0 +1,216 @@
+{
+  "status": "completed",
+  "duration": 31.23,
+  "summary": {
+    "total": 29,
+    "passed": 29,
+    "failed": 0,
+    "skipped": 0,
+    "inconclusive": 0
+  },
+  "results": [
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.ClickAndUiOrOutsideReleaseDoNotSpendAp",
+      "Status": "Passed",
+      "Duration": 1.5777285,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.EdgeDirectionsUiBlockingAndIdleHover",
+      "Status": "Passed",
+      "Duration": 2.4516839,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.HealthBarDoesNotBlockPointerInput",
+      "Status": "Passed",
+      "Duration": 0.7388974,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.HealthBarFollowsActualTransformAndRemovesOnDeath",
+      "Status": "Passed",
+      "Duration": 0.688314,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.HealthBarProjectionScaleAndViewportFollowCurrentCamera",
+      "Status": "Passed",
+      "Duration": 0.6235398,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.HealthBarsRebuildOnlyWhenNeededAndUseFinalMaxHealth",
+      "Status": "Passed",
+      "Duration": 0.4493861,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.HealthBarsReleaseDestroyedUnitsAndSceneBindings",
+      "Status": "Passed",
+      "Duration": 0.7805749,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.HealthBarTracksMovementAndCameraInTheSameFrame",
+      "Status": "Passed",
+      "Duration": 1.6861441,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.InspectorCameraSettingsSurviveInitializationAndButtonRotation",
+      "Status": "Passed",
+      "Duration": 1.3017801,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.InterruptedMovementSnapsAndDeathClearsOccupancy",
+      "Status": "Passed",
+      "Duration": 0.4548257,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.InvalidInspectorCameraSettingsAreRejectedWithoutBeingRewritten",
+      "Status": "Passed",
+      "Duration": 0.4388944,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.LethalShotRemovesTargetFromGridTurnAndTargetList",
+      "Status": "Passed",
+      "Duration": 0.4648319,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.LivingPlayersAndEnemiesKeepOneHealthBarThroughTurnsAndAp",
+      "Status": "Passed",
+      "Duration": 0.468483,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.LosChangeInvalidatesSelectedTargetAndHidesFireAction",
+      "Status": "Passed",
+      "Duration": 0.5046478,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.MouseDragPreviewsThenCommitsOnlyOnRelease",
+      "Status": "Passed",
+      "Duration": 0.9771478,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.MousePanGrabsGroundAndPausesAcrossUi",
+      "Status": "Passed",
+      "Duration": 0.5300723,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.MovingTargetAcrossCurveStepRefreshesDisplayedAndCommittedChance",
+      "Status": "Passed",
+      "Duration": 0.4806715,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.PanCenterRemainsInsideBoardAtEveryHeading",
+      "Status": "Passed",
+      "Duration": 2.6591556,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.PerspectiveOrbitKeepsCenterHeightAndLens",
+      "Status": "Passed",
+      "Duration": 1.7481057,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.ShooterCanPeekFromAdjacentCellWithoutMoving",
+      "Status": "Passed",
+      "Duration": 0.509666,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.SightRangeChangesRefreshVisibleTargetsAndClearInvalidSelection",
+      "Status": "Passed",
+      "Duration": 0.5051865,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.SpawnCoordinatesAndManualTurnLoop",
+      "Status": "Passed",
+      "Duration": 0.4443561,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.StationaryUnitDragScrollsAndReleaseUsesFinalCamera",
+      "Status": "Passed",
+      "Duration": 5.9070825,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.SwitchingSelectedPlayerRefreshesItsTargetList",
+      "Status": "Passed",
+      "Duration": 0.6579918,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.TargetListPreviewsAndFiresOnlyOnButtonPress",
+      "Status": "Passed",
+      "Duration": 0.8764792,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.TouchCancellationAndFocusLossDoNotMove",
+      "Status": "Passed",
+      "Duration": 0.6271256,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.TouchDragIgnoresSecondaryFingerAndMoves",
+      "Status": "Passed",
+      "Duration": 1.1859638,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.TouchPanLocksFingerAndFocusLossStopsIt",
+      "Status": "Passed",
+      "Duration": 0.7507258,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleFlowPlayModeTests.ZeroChanceVisibleTargetStaysSelectableAndCanFire",
+      "Status": "Passed",
+      "Duration": 0.6978708,
+      "Message": null,
+      "StackTrace": null
+    }
+  ]
+}

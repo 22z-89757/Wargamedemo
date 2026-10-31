@@ -1,0 +1,1735 @@
+{
+  "status": "completed",
+  "duration": 11.05,
+  "summary": {
+    "total": 246,
+    "passed": 246,
+    "failed": 0,
+    "skipped": 0,
+    "inconclusive": 0
+  },
+  "results": [
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.ActivateCommitsCostAndEnds",
+      "Status": "Passed",
+      "Duration": 0.0259957,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.ChargesAreConsumedAndRestored",
+      "Status": "Passed",
+      "Duration": 0.0007664,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.ConfigurationValidation",
+      "Status": "Passed",
+      "Duration": 0.0026476,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.CooldownTicksAtOwnerTurnStart",
+      "Status": "Passed",
+      "Duration": 0.0006961,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.CustomConditionIsChecked",
+      "Status": "Passed",
+      "Duration": 0.0004909,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.DynamicCostsAndFailedCommitsPreserveActivationState",
+      "Status": "Passed",
+      "Duration": 0.0008869,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.EndsTurnClearsRemainingActionPoints",
+      "Status": "Passed",
+      "Duration": 0.0004597,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.ExclusiveAbilitiesAndDelayedEnd",
+      "Status": "Passed",
+      "Duration": 0.0012112,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.GrantAndRemove",
+      "Status": "Passed",
+      "Duration": 0.0018828,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.NotEnoughActionPoints",
+      "Status": "Passed",
+      "Duration": 0.0005822,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.NotGrantedAbilityFails",
+      "Status": "Passed",
+      "Duration": 0.000561,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.OutOfTurnActivation",
+      "Status": "Passed",
+      "Duration": 0.0005149,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.RemoveAndKillCancelActiveAbilities",
+      "Status": "Passed",
+      "Duration": 0.0025525,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.TagRequirementsAndBlocks",
+      "Status": "Passed",
+      "Duration": 0.0026491,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.AbilityComponentTests.TargetValidation",
+      "Status": "Passed",
+      "Duration": 0.0021682,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.DuplicateAndOutOfBoundsSpawnsAreRejectedBeforeInstantiating",
+      "Status": "Passed",
+      "Duration": 0.0140727,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidHealthLayerIsRejectedBeforeSpawning(\"missing\")",
+      "Status": "Passed",
+      "Duration": 0.0048903,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidHealthLayerIsRejectedBeforeSpawning(\"canvas\")",
+      "Status": "Passed",
+      "Duration": 0.0015359,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidHealthLayerIsRejectedBeforeSpawning(\"view\")",
+      "Status": "Passed",
+      "Duration": 0.0009987,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidHealthLayerIsRejectedBeforeSpawning(\"sorting\")",
+      "Status": "Passed",
+      "Duration": 0.0011071,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidHealthLayerIsRejectedBeforeSpawning(\"input\")",
+      "Status": "Passed",
+      "Duration": 0.0010953,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidHealthLayerIsRejectedBeforeSpawning(\"size\")",
+      "Status": "Passed",
+      "Duration": 0.0010633,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidHealthLayerIsRejectedBeforeSpawning(\"distance\")",
+      "Status": "Passed",
+      "Duration": 0.0010836,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidHealthLayerIsRejectedBeforeSpawning(\"scale\")",
+      "Status": "Passed",
+      "Duration": 0.0011636,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidHealthLayerIsRejectedBeforeSpawning(\"scaler\")",
+      "Status": "Passed",
+      "Duration": 0.0011674,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidHealthLayerIsRejectedBeforeSpawning(\"nested\")",
+      "Status": "Passed",
+      "Duration": 0.0015775,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidSpawnTerrainCreatesNoUnits(HalfBlocked)",
+      "Status": "Passed",
+      "Duration": 0.0018855,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.InvalidSpawnTerrainCreatesNoUnits(FullBlocked)",
+      "Status": "Passed",
+      "Duration": 0.0013024,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.Map1HasIndependentNonInteractiveHealthCanvas",
+      "Status": "Passed",
+      "Duration": 0.0332827,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleSceneManagerValidationTests.MissingOrInvalidGameSettingsIsRejectedBeforeSpawning",
+      "Status": "Passed",
+      "Duration": 0.0017155,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleTurnManagerTests.BuffDurationsAcrossFactionTurns",
+      "Status": "Passed",
+      "Duration": 0.0060658,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleTurnManagerTests.DeadUnitsSkipAndCustomOrder",
+      "Status": "Passed",
+      "Duration": 0.0031056,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleTurnManagerTests.EndCurrentTurnRotatesFactionsAndRounds",
+      "Status": "Passed",
+      "Duration": 0.0008672,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleTurnManagerTests.FactionOrderValidation",
+      "Status": "Passed",
+      "Duration": 0.0008619,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleTurnManagerTests.RegistryAndFactionQuery",
+      "Status": "Passed",
+      "Duration": 0.0011394,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleTurnManagerTests.StartBattleBeginsFirstFaction",
+      "Status": "Passed",
+      "Duration": 0.0009965,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BattleTurnManagerTests.StateGuards",
+      "Status": "Passed",
+      "Duration": 0.0017686,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.ApplyAndRemoveMountsTagsAndModifiers",
+      "Status": "Passed",
+      "Duration": 0.0046632,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.BlockedTagsConditionsAndDeathRejectApply",
+      "Status": "Passed",
+      "Duration": 0.0013428,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.BuffAppliedDuringOwnTurnSkipsThatTurnsTick",
+      "Status": "Passed",
+      "Duration": 0.0005298,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.ConstructorValidatesArguments",
+      "Status": "Passed",
+      "Duration": 0.0007414,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.DamageOverTimeCanKill",
+      "Status": "Passed",
+      "Duration": 0.0006883,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.DurationTicksAtOwnerTurnEnd",
+      "Status": "Passed",
+      "Duration": 0.000736,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.IndependentPolicyKeepsSeparateInstances",
+      "Status": "Passed",
+      "Duration": 0.0007917,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.InvalidApplyThrows",
+      "Status": "Passed",
+      "Duration": 0.0010158,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.ModifierOnMissingAttributeIsSkipped",
+      "Status": "Passed",
+      "Duration": 0.0012855,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.PermanentBuffNeverExpires",
+      "Status": "Passed",
+      "Duration": 0.0007634,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.RefreshPolicyResetsDurationOnExistingInstance",
+      "Status": "Passed",
+      "Duration": 0.0011,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.RemovalDuringTurnHooksIsSafe",
+      "Status": "Passed",
+      "Duration": 0.0019614,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.RemoveByIdAndByGrantedTag",
+      "Status": "Passed",
+      "Duration": 0.0013711,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.RemovedInstanceCanBeReapplied",
+      "Status": "Passed",
+      "Duration": 0.0009799,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.ReplacePolicySwapsInstance",
+      "Status": "Passed",
+      "Duration": 0.0012765,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.StackPolicyScalesModifiersUpToMax",
+      "Status": "Passed",
+      "Duration": 0.0018564,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.BuffComponentTests.UniquePolicyRejectsDuplicate",
+      "Status": "Passed",
+      "Duration": 0.0009689,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.CharacterAttributeTests.AttributeChangedReportsOldAndNewValues",
+      "Status": "Passed",
+      "Duration": 0.0020669,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.CharacterAttributeTests.ClampedAttributesStayWithinBounds",
+      "Status": "Passed",
+      "Duration": 0.0006639,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.CharacterAttributeTests.DefaultsAreCreatedAndMissingAttributeThrows",
+      "Status": "Passed",
+      "Duration": 0.0017512,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.CharacterAttributeTests.DefineAttributeCreatesOrResets",
+      "Status": "Passed",
+      "Duration": 0.0009468,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.CharacterAttributeTests.LoweringMaxClampsDependentAttribute",
+      "Status": "Passed",
+      "Duration": 0.0006042,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.CharacterAttributeTests.ModifiersFollowAggregationFormula",
+      "Status": "Passed",
+      "Duration": 0.0012174,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.CharacterAttributeTests.ModifierSpecScalesWithStacks",
+      "Status": "Passed",
+      "Duration": 0.001145,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.CharacterAttributeTests.MultiplierIsFlooredAtZero",
+      "Status": "Passed",
+      "Duration": 0.0004191,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.CharacterAttributeTests.NonFiniteValuesAreRejected",
+      "Status": "Passed",
+      "Duration": 0.0011094,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.CharacterAttributeTests.OverrideWinsAndLastOverrideIsUsed",
+      "Status": "Passed",
+      "Duration": 0.0004388,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.CharacterAttributeTests.RemoveModifiersFromSourceOnlyRemovesThatSource",
+      "Status": "Passed",
+      "Duration": 0.0004541,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridCellDataTests.CopyingAnOccupiedCellDoesNotCopyItsOccupant",
+      "Status": "Passed",
+      "Duration": 0.001114,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridCellDataTests.DraftCopiesDoNotShareCellReferences",
+      "Status": "Passed",
+      "Duration": 0.000819,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridCellDataTests.ExistingSerializedCellFieldsRemainCompatible",
+      "Status": "Passed",
+      "Duration": 0.001346,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridCellDataTests.FullBlockedCostsNormalizeAcrossConstructionAndSerialization",
+      "Status": "Passed",
+      "Duration": 0.0008714,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridCellDataTests.MapWritesCopyCellsInsteadOfSharingInputReferences",
+      "Status": "Passed",
+      "Duration": 0.0009319,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridCellDataTests.NullCellsAndNullCopySourcesAreRejected",
+      "Status": "Passed",
+      "Duration": 0.0018814,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridCellDataTests.RuntimeCellUsesInheritedPropertiesOnAnIndependentCopy",
+      "Status": "Passed",
+      "Duration": 0.0011312,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridLineOfSightAdapterTests.AdapterUsesLiveBlockStateAndOnlyFullBlockedIsOpaque",
+      "Status": "Passed",
+      "Duration": 0.0025246,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridLineOfSightAdapterTests.NullGridAndUninitializedGridHaveNoVisibleCells",
+      "Status": "Passed",
+      "Duration": 0.0005962,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridLineOfSightAdapterTests.OccupantsAndDirectionalCoverDoNotBlockSight",
+      "Status": "Passed",
+      "Duration": 0.0012344,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridLineOfSightTests.BlockerAtExactDiagonalCornerBlocksSight",
+      "Status": "Passed",
+      "Duration": 0.0008687,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridLineOfSightTests.ClearLineAndSameCellAreVisible",
+      "Status": "Passed",
+      "Duration": 0.0002531,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridLineOfSightTests.HorizontalVerticalAndSteepLinesAreTraversed",
+      "Status": "Passed",
+      "Duration": 0.0002953,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridLineOfSightTests.NullMapAndOutOfBoundsEndpointsAreNotVisible",
+      "Status": "Passed",
+      "Duration": 0.0002509,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridLineOfSightTests.OnlyIntermediateBlockersAreChecked",
+      "Status": "Passed",
+      "Duration": 0.0002379,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridLineOfSightTests.OpenDiagonalCornerAllowsSight",
+      "Status": "Passed",
+      "Duration": 0.0001963,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridLineOfSightTests.ReverseEndpointsProduceSameResult",
+      "Status": "Passed",
+      "Duration": 0.0002503,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.BlockStatesControlTraversalAndEnclosure",
+      "Status": "Passed",
+      "Duration": 0.0081753,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.CoordinateConversionUsesCellCentersAndWorldAxes",
+      "Status": "Passed",
+      "Duration": 0.0025074,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.DestroyedUnitDoesNotLeaveAnOccupiedCell",
+      "Status": "Passed",
+      "Duration": 0.0013573,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.DirectionalCoverDoesNotAffectNeighborsOrMovement",
+      "Status": "Passed",
+      "Duration": 0.0007394,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.EmptyBoardMatchesManhattanRange(2,2,0)",
+      "Status": "Passed",
+      "Duration": 0.0024135,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.EmptyBoardMatchesManhattanRange(2,2,1)",
+      "Status": "Passed",
+      "Duration": 0.0006962,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.EmptyBoardMatchesManhattanRange(2,2,2)",
+      "Status": "Passed",
+      "Duration": 0.0003944,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.EmptyBoardMatchesManhattanRange(0,0,2)",
+      "Status": "Passed",
+      "Duration": 0.0002538,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.EmptyBoardMatchesManhattanRange(4,2,3)",
+      "Status": "Passed",
+      "Duration": 0.000252,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.EqualCostPathsUseStableDirectionOrder",
+      "Status": "Passed",
+      "Duration": 0.0008433,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.FullBlockedStateKeepsAnImpassableCostUntilUnblocked",
+      "Status": "Passed",
+      "Duration": 0.0011779,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.InitializationCreatesDefaultCells",
+      "Status": "Passed",
+      "Duration": 0.0017528,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.InvalidCellEditsLeaveDataUnchanged",
+      "Status": "Passed",
+      "Duration": 0.0007238,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.MaximumMovementCostDoesNotOverflow",
+      "Status": "Passed",
+      "Duration": 0.0005244,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.NeighborsFollowCardinalOrderAndRespectBounds",
+      "Status": "Passed",
+      "Duration": 0.0012874,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.OccupiedCellsAreTraversableButNotDestinations",
+      "Status": "Passed",
+      "Duration": 0.001269,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.SearchDetoursAroundNegativeBlockedCost",
+      "Status": "Passed",
+      "Duration": 0.0031925,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.SearchRejectsInvalidArguments",
+      "Status": "Passed",
+      "Duration": 0.0007904,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.SearchResultsRemainIndependentSnapshots",
+      "Status": "Passed",
+      "Duration": 0.0014944,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.UninitializedGridRejectsInvalidRequests",
+      "Status": "Passed",
+      "Duration": 0.0009585,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.UnitUpdatesAreAtomicAndOnlyChangeLogicalOccupancy",
+      "Status": "Passed",
+      "Duration": 0.0018081,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.UnsupportedTransformIsRejected",
+      "Status": "Passed",
+      "Duration": 0.0009629,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.WeightedMapsMatchIndependentShortestPathReference",
+      "Status": "Passed",
+      "Duration": 0.0117036,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridManagerTests.WeightedSearchChoosesCheaperDetour",
+      "Status": "Passed",
+      "Duration": 0.001134,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.AwakeUsesBakedMapAndIgnoresUnbakedDraft",
+      "Status": "Passed",
+      "Duration": 0.3609956,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.BakedBlockedCostsLoadAndRemainIndependent",
+      "Status": "Passed",
+      "Duration": 0.315136,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.BakeUndoRedoRestoresAssetAndDiskContents",
+      "Status": "Passed",
+      "Duration": 0.4980988,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.BakingDoesNotOverwriteAnExternalAsset",
+      "Status": "Passed",
+      "Duration": 0.3894935,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.BakingUpdatesGuidAndSaveAsCreatesAnotherAsset",
+      "Status": "Passed",
+      "Duration": 0.4676523,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.BrushesPreserveBlockedCostsAndUndoStateTransitions",
+      "Status": "Passed",
+      "Duration": 0.3288335,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.BrushModesOnlyChangeSelectedValues(0,-1,FullBlocked)",
+      "Status": "Passed",
+      "Duration": 0.2470867,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.BrushModesOnlyChangeSelectedValues(1,7,HalfBlocked)",
+      "Status": "Passed",
+      "Duration": 0.2377474,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.BrushModesOnlyChangeSelectedValues(2,-1,FullBlocked)",
+      "Status": "Passed",
+      "Duration": 0.3106733,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.CoversUseNeighborStatesForEveryCell",
+      "Status": "Passed",
+      "Duration": 0.3157219,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.DraftSurvivesSceneSaveAndReload",
+      "Status": "Passed",
+      "Duration": 1.3305017,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.ImportCopiesMapAndSupportsUndo",
+      "Status": "Passed",
+      "Duration": 0.4518255,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.InvalidDraftDoesNotOverwriteMap",
+      "Status": "Passed",
+      "Duration": 0.3513086,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.InvalidEditorInputsAreRejected",
+      "Status": "Passed",
+      "Duration": 0.2176471,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.InvalidMapDoesNotPartiallyInitializeOrOverwrite",
+      "Status": "Passed",
+      "Duration": 0.2445957,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.LeavingBoardBreaksTheStrokeLine",
+      "Status": "Passed",
+      "Duration": 0.2879289,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.NewMapsNeverOverwriteAnExistingFilename",
+      "Status": "Passed",
+      "Duration": 0.4629355,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.PaintingPrefabInstanceRecordsOverrides",
+      "Status": "Passed",
+      "Duration": 0.3524042,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.ResizePreservesOverlapAndUndoRestoresCroppedCells",
+      "Status": "Passed",
+      "Duration": 0.2910021,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.RuntimeLoadCopiesDataAndPreservesWeightedSearch",
+      "Status": "Passed",
+      "Duration": 0.4059544,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.ScenePickingDoesNotNeedColliders",
+      "Status": "Passed",
+      "Duration": 0.264283,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.GridMapEditorTests.StrokeFillsGapsAndUndoesAsOneOperation",
+      "Status": "Passed",
+      "Duration": 0.3161528,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.CommitMovesOnceAndDeductsOnce",
+      "Status": "Passed",
+      "Duration": 0.0055287,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.CostBoundariesAndPreviewArePure(6,1,True)",
+      "Status": "Passed",
+      "Duration": 0.0015414,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.CostBoundariesAndPreviewArePure(7,2,True)",
+      "Status": "Passed",
+      "Duration": 0.0005357,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.CostBoundariesAndPreviewArePure(12,2,True)",
+      "Status": "Passed",
+      "Duration": 0.0004573,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.CostBoundariesAndPreviewArePure(13,0,False)",
+      "Status": "Passed",
+      "Duration": 0.0004165,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.OneApCannotDashAndMobilityChangesRange",
+      "Status": "Passed",
+      "Duration": 0.0010433,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.StalePreviewAndInvalidTargetsDoNotSpendAp",
+      "Status": "Passed",
+      "Duration": 0.0008269,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.StatusPreventsMovement(Bound)",
+      "Status": "Passed",
+      "Duration": 0.0010303,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.StatusPreventsMovement(Stunned)",
+      "Status": "Passed",
+      "Duration": 0.000484,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.StatusPreventsMovement(Unconscious)",
+      "Status": "Passed",
+      "Duration": 0.0004775,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.StatusPreventsMovement(Dead)",
+      "Status": "Passed",
+      "Duration": 0.0004055,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.MoveAbilityTests.WeightedPathAndOccupiedTraversalUseTheSameRules",
+      "Status": "Passed",
+      "Duration": 0.0013532,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.ClearAdjacentPeekAllowsShotWithoutChangingUnitPositions",
+      "Status": "Passed",
+      "Duration": 0.0048496,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.DodgeCausesGrazingAndMissDealsNoDamage",
+      "Status": "Passed",
+      "Duration": 0.0012356,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.InputsChangingDuringRandomPreparationDoNotSpendAp(\"move\")",
+      "Status": "Passed",
+      "Duration": 0.0019618,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.InputsChangingDuringRandomPreparationDoNotSpendAp(\"aim\")",
+      "Status": "Passed",
+      "Duration": 0.0006859,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.InputsChangingDuringRandomPreparationDoNotSpendAp(\"sight\")",
+      "Status": "Passed",
+      "Duration": 0.0006092,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.InputsChangingDuringRandomPreparationDoNotSpendAp(\"armor\")",
+      "Status": "Passed",
+      "Duration": 0.000545,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.InputsChangingDuringRandomPreparationDoNotSpendAp(\"los\")",
+      "Status": "Passed",
+      "Duration": 0.000544,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.InputsChangingDuringRandomPreparationDoNotSpendAp(\"turn\")",
+      "Status": "Passed",
+      "Duration": 0.0005254,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.InsufficientApAndRandomFailureDoNotPartiallyCommit",
+      "Status": "Passed",
+      "Duration": 0.0012567,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.LethalShotUsesUnitDeathAndGridCleanupEvents",
+      "Status": "Passed",
+      "Duration": 0.0010382,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.MovingAcrossStepAfterPreviewUsesCurrentDistanceAtCommit",
+      "Status": "Passed",
+      "Duration": 0.0007012,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.PeekLineDoesNotExtendSightRangeBeyondActualUnitDistance",
+      "Status": "Passed",
+      "Duration": 0.0009155,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.PreviewAndResultUseInjectedSettingsAndKeepHistoricalSnapshot",
+      "Status": "Passed",
+      "Duration": 0.0011627,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.PreviewCannotBypassTargetInvalidationOrTurnEnd",
+      "Status": "Passed",
+      "Duration": 0.0011106,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.PreviewUsesAimAndDefenseAndDoesNotChangeHealthOrAp",
+      "Status": "Passed",
+      "Duration": 0.0012352,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.RejectsIllegalTargetsWithoutSpendingAp",
+      "Status": "Passed",
+      "Duration": 0.002333,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.RejectsShotWhenAllCurrentAndAdjacentLinesAreBlocked",
+      "Status": "Passed",
+      "Duration": 0.0012005,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.ShotHitsWithArmorAndConsumesOneAp",
+      "Status": "Passed",
+      "Duration": 0.0008701,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.SightRangeDecreaseInvalidatesAnExistingPreview",
+      "Status": "Passed",
+      "Duration": 0.0007855,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.SightRangeUsesFlooredEuclideanDistanceWithoutWeaponLimit(1,1,1,True)",
+      "Status": "Passed",
+      "Duration": 0.0010092,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.SightRangeUsesFlooredEuclideanDistanceWithoutWeaponLimit(3,4,5,True)",
+      "Status": "Passed",
+      "Duration": 0.0004511,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.SightRangeUsesFlooredEuclideanDistanceWithoutWeaponLimit(3,4,4,False)",
+      "Status": "Passed",
+      "Duration": 0.0003843,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.SightRangeUsesFlooredEuclideanDistanceWithoutWeaponLimit(10,0,12,True)",
+      "Status": "Passed",
+      "Duration": 0.0003478,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.SightRangeUsesFlooredEuclideanDistanceWithoutWeaponLimit(12,0,12,True)",
+      "Status": "Passed",
+      "Duration": 0.0003898,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.SightRangeUsesFlooredEuclideanDistanceWithoutWeaponLimit(13,0,12,False)",
+      "Status": "Passed",
+      "Duration": 0.0004774,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.SightRangeUsesFlooredEuclideanDistanceWithoutWeaponLimit(25,0,30,True)",
+      "Status": "Passed",
+      "Duration": 0.0005429,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.SightRangeUsesFlooredEuclideanDistanceWithoutWeaponLimit(1,1,-1,False)",
+      "Status": "Passed",
+      "Duration": 0.0003777,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.SkipsOutOfBoundsAndFullBlockedPeekOrigins",
+      "Status": "Passed",
+      "Duration": 0.0006369,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootAbilityTests.ZeroChanceTargetCanFireButAlwaysMisses",
+      "Status": "Passed",
+      "Duration": 0.0010128,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.ArmorReducesDamageWithoutGoingBelowZero(4,0.0f,4)",
+      "Status": "Passed",
+      "Duration": 0.0006213,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.ArmorReducesDamageWithoutGoingBelowZero(4,1.0f,3)",
+      "Status": "Passed",
+      "Duration": 0.0001181,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.ArmorReducesDamageWithoutGoingBelowZero(2,3.0f,0)",
+      "Status": "Passed",
+      "Duration": 0.0002188,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.DefaultCurveUsesTenCellBaseline(5,60)",
+      "Status": "Passed",
+      "Duration": 0.0005399,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.DefaultCurveUsesTenCellBaseline(10,50)",
+      "Status": "Passed",
+      "Duration": 0.0001717,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.DefaultCurveUsesTenCellBaseline(15,40)",
+      "Status": "Passed",
+      "Duration": 0.0001737,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.DistanceFloorsEuclideanLogicalCoordinates(0,0,0)",
+      "Status": "Passed",
+      "Duration": 0.0005675,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.DistanceFloorsEuclideanLogicalCoordinates(1,1,1)",
+      "Status": "Passed",
+      "Duration": 9.98E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.DistanceFloorsEuclideanLogicalCoordinates(3,4,5)",
+      "Status": "Passed",
+      "Duration": 0.0001019,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.DistanceFloorsEuclideanLogicalCoordinates(-3,-4,5)",
+      "Status": "Passed",
+      "Duration": 9.57E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.DistanceFloorsEuclideanLogicalCoordinates(7,7,9)",
+      "Status": "Passed",
+      "Duration": 9.65E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.DistanceFloorsEuclideanLogicalCoordinates(5000,1,5000)",
+      "Status": "Passed",
+      "Duration": 9.86E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.HitChanceAddsDistanceBeforeClamping(65.0f,0.0f,10.0f,75.0f)",
+      "Status": "Passed",
+      "Duration": 0.0004083,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.HitChanceAddsDistanceBeforeClamping(20.0f,45.0f,20.0f,0.0f)",
+      "Status": "Passed",
+      "Duration": 0.0001107,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.HitChanceAddsDistanceBeforeClamping(100.0f,0.0f,20.0f,100.0f)",
+      "Status": "Passed",
+      "Duration": 9.79E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootRulesTests.HitChanceAddsDistanceBeforeClamping(150.0f,0.0f,-60.0f,90.0f)",
+      "Status": "Passed",
+      "Duration": 9.43E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultCurveUsesConstantStepsAndClampedEnds(-1,20)",
+      "Status": "Passed",
+      "Duration": 0.0005001,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultCurveUsesConstantStepsAndClampedEnds(0,20)",
+      "Status": "Passed",
+      "Duration": 0.0001106,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultCurveUsesConstantStepsAndClampedEnds(4,20)",
+      "Status": "Passed",
+      "Duration": 0.0002123,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultCurveUsesConstantStepsAndClampedEnds(5,10)",
+      "Status": "Passed",
+      "Duration": 0.0001705,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultCurveUsesConstantStepsAndClampedEnds(9,10)",
+      "Status": "Passed",
+      "Duration": 9.08E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultCurveUsesConstantStepsAndClampedEnds(10,0)",
+      "Status": "Passed",
+      "Duration": 7.63E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultCurveUsesConstantStepsAndClampedEnds(14,0)",
+      "Status": "Passed",
+      "Duration": 7E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultCurveUsesConstantStepsAndClampedEnds(15,-10)",
+      "Status": "Passed",
+      "Duration": 7.59E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultCurveUsesConstantStepsAndClampedEnds(19,-10)",
+      "Status": "Passed",
+      "Duration": 8.02E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultCurveUsesConstantStepsAndClampedEnds(20,-20)",
+      "Status": "Passed",
+      "Duration": 8.55E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultCurveUsesConstantStepsAndClampedEnds(25,-20)",
+      "Status": "Passed",
+      "Duration": 0.0002359,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.DefaultGameAssetLoadsWithSteppedCurve",
+      "Status": "Passed",
+      "Duration": 0.0014903,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.MissingAndInvalidConfigurationFailsExplicitly",
+      "Status": "Passed",
+      "Duration": 0.0014273,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.NormalizeMakesInspectorCurveConstantAndClamped",
+      "Status": "Passed",
+      "Duration": 0.0008474,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.ShootSettingsTests.SnapshotUsesCustomStepsAndDoesNotShareMutableCurve",
+      "Status": "Passed",
+      "Duration": 0.0003733,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.TagComponentTests.ClearTagIgnoresReferenceCount",
+      "Status": "Passed",
+      "Duration": 0.0017097,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.TagComponentTests.HasAnyAndHasAllQueries",
+      "Status": "Passed",
+      "Duration": 0.0026734,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.TagComponentTests.InitialTagsAreAppliedOnFirstAccess",
+      "Status": "Passed",
+      "Duration": 0.0008869,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.TagComponentTests.ReferenceCountKeepsTagUntilLastSourceRemoved",
+      "Status": "Passed",
+      "Duration": 0.001557,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.TagComponentTests.RemovingMissingTagAndAddingNoneAreIgnored",
+      "Status": "Passed",
+      "Duration": 0.000482,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(10.0f,10.0f,10.0d,10.0d)",
+      "Status": "Passed",
+      "Duration": 0.0019624,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(7.5f,10.0f,10.0d,8.0d)",
+      "Status": "Passed",
+      "Duration": 0.0001957,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(7.9f,10.0f,10.0d,8.0d)",
+      "Status": "Passed",
+      "Duration": 0.0001183,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(7.1f,10.0f,10.0d,8.0d)",
+      "Status": "Passed",
+      "Duration": 6.55E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(7.0f,10.0f,10.0d,7.0d)",
+      "Status": "Passed",
+      "Duration": 4.69E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(7.0f,10.0f,10.0d,8.0d)",
+      "Status": "Passed",
+      "Duration": 4.32E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(7.0f,10.0f,10.0d,7.0d GeneratedTestCase2)",
+      "Status": "Passed",
+      "Duration": 2.6E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(0.1f,10.0f,10.0d,1.0d)",
+      "Status": "Passed",
+      "Duration": 5.74E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(1.401298E-45f,10.0f,10.0d,1.0d)",
+      "Status": "Passed",
+      "Duration": 4.66E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(0.0f,10.0f,10.0d,0.0d)",
+      "Status": "Passed",
+      "Duration": 4.18E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(-1.0f,10.0f,10.0d,0.0d)",
+      "Status": "Passed",
+      "Duration": 3.76E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(20.0f,10.0f,10.0d,10.0d)",
+      "Status": "Passed",
+      "Duration": 3.71E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(7.5f,7.5f,8.0d,8.0d)",
+      "Status": "Passed",
+      "Duration": 3.76E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(3.75f,7.5f,8.0d,4.0d)",
+      "Status": "Passed",
+      "Duration": 3.77E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(2.0f,7.5f,8.0d,3.0d)",
+      "Status": "Passed",
+      "Duration": 3.63E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.FractionalHealthBecomesWholeSegments(0.25f,0.5f,1.0d,1.0d)",
+      "Status": "Passed",
+      "Duration": 4.02E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.IntegerHealthHasNoExtraSegmentAtAnyBoundary",
+      "Status": "Passed",
+      "Duration": 0.0372081,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.InvalidCapacityHasNoGeometry(0.0f)",
+      "Status": "Passed",
+      "Duration": 0.0005048,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.InvalidCapacityHasNoGeometry(-1.0f)",
+      "Status": "Passed",
+      "Duration": 6.43E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.InvalidCapacityHasNoGeometry(float.NaN)",
+      "Status": "Passed",
+      "Duration": 5.58E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.InvalidCapacityHasNoGeometry(float.PositiveInfinity)",
+      "Status": "Passed",
+      "Duration": 5.54E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.InvalidSettingsAreRejected(\"size\")",
+      "Status": "Passed",
+      "Duration": 0.0003827,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.InvalidSettingsAreRejected(\"offset\")",
+      "Status": "Passed",
+      "Duration": 6.84E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.InvalidSettingsAreRejected(\"distance\")",
+      "Status": "Passed",
+      "Duration": 6.21E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.InvalidSettingsAreRejected(\"scale\")",
+      "Status": "Passed",
+      "Duration": 0.0001756,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.InvalidSettingsAreRejected(\"nan\")",
+      "Status": "Passed",
+      "Duration": 7.62E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.InvalidSettingsAreRejected(\"infinity\")",
+      "Status": "Passed",
+      "Duration": 6.3E-05,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.PrefabFillGeometryEndsAtTheRoundedSegmentBoundary",
+      "Status": "Passed",
+      "Duration": 0.0170465,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.PrefabKeepsItsWidthAndProducesEqualDividers(1.0f,1.0d)",
+      "Status": "Passed",
+      "Duration": 0.0042604,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.PrefabKeepsItsWidthAndProducesEqualDividers(5.0f,5.0d)",
+      "Status": "Passed",
+      "Duration": 0.001004,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.PrefabKeepsItsWidthAndProducesEqualDividers(10.0f,10.0d)",
+      "Status": "Passed",
+      "Duration": 0.0003573,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.PrefabKeepsItsWidthAndProducesEqualDividers(7.5f,8.0d)",
+      "Status": "Passed",
+      "Duration": 0.0008894,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.PrefabKeepsItsWidthAndProducesEqualDividers(0.5f,1.0d)",
+      "Status": "Passed",
+      "Duration": 0.0003805,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitHealthBarTests.ScaleIsMonotonicLinearAndBounded",
+      "Status": "Passed",
+      "Duration": 0.0010346,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitTests.BeginTurnOrderAllowsStunToClearActionPoints",
+      "Status": "Passed",
+      "Duration": 0.0018513,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitTests.BeginTurnRefillsActionPointsToModifiedMax",
+      "Status": "Passed",
+      "Duration": 0.0005345,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitTests.ExposesRequiredComponents",
+      "Status": "Passed",
+      "Duration": 0.0006716,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitTests.HealthReachingZeroKillsOnce",
+      "Status": "Passed",
+      "Duration": 0.000943,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitTests.TurnCallsAreIdempotentAndDeadUnitsSkip",
+      "Status": "Passed",
+      "Duration": 0.0012266,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitTests.UnitDyingDuringTurnStillEndsTurn",
+      "Status": "Passed",
+      "Duration": 0.0006013,
+      "Message": null,
+      "StackTrace": null
+    },
+    {
+      "FullName": "Wargame.Tests.UnitTests.UnitIdsAreUnique",
+      "Status": "Passed",
+      "Duration": 0.0015862,
+      "Message": null,
+      "StackTrace": null
+    }
+  ]
+}
