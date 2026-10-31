@@ -37,6 +37,18 @@ MapData 资产保存全部格子的坐标、代价、障碍和四边掩体，不
 
 `MapCellData` 是可序列化的地图数据基类，统一定义坐标、移动代价、障碍及四边掩体。`GridCell` 继承这些属性，仅增加单位占用和运行时更新方法，公共字段不重复定义。地图资产对外只读；加载时逐格创建独立的 `GridCell`，草稿导出与资产写入也逐格复制，避免类引用共享。
 
+### 视线查询（LOS）
+
+`GridLineOfSight` 在逻辑格子中心之间执行二维 supercover 查询。遍历器只依赖 `ILineOfSightMap` 的边界与阻挡查询；`GridLineOfSightMap` 将运行时 `GridManager` 适配为该接口，不依赖单位能力、战斗输入或物理碰撞体。地图不可用或任一坐标越界时返回 `false`；端点格不检查阻挡，同格查询在坐标有效时返回 `true`。
+
+```csharp
+var lineOfSightMap = new GridLineOfSightMap(grid);
+bool visible = GridLineOfSight.HasLineOfSight(lineOfSightMap,
+    new Vector2Int(1, 1), new Vector2Int(6, 4));
+```
+
+适配器只将 `FullBlocked` 视为阻挡；`HalfBlocked`、单位占用和方向掩体不影响查询。视线恰好穿过格角时会同时检查角点两侧相邻格，任一侧为全障碍都会阻挡。当前规则不计算高低差、部分掩体或单位轮廓，也不自动接入攻击或侦测系统。
+
 ```csharp
 // 以下代码在 GridManager 初始化后调用，grid 为组件引用。
 grid.TrySetBlockState(new Vector2Int(2, 1), BlockState.HalfBlocked);
@@ -128,7 +140,19 @@ PC 仅使用鼠标左键，Android 使用主触点：从玩家单位按下，拖
 
 ### Cinemachine 战术相机
 
-Map1 使用 Cinemachine 3.1.7：MainCamera 保留渲染、URP 与 AudioListener，CinemachineBrain 采用 ManualUpdate；`BattleCameraRig` 维护竖直中心轴与俯角子节点，CinemachineCamera 通过 Follow / RotateWithFollowTarget 输出实际镜头。阻尼为零，旋转由 DOTween 插值。默认 FOV 45°、俯角 55°、朝向 45°、高度 12 格，可在 BattleCameraRig Inspector 配置。初始中心是首个玩家的出生格；横竖屏切换保持 FOV、高度与俯角，不再自动容纳全图。
+Map1 使用 Cinemachine 3.1.7：MainCamera 保留渲染、URP 与 AudioListener，CinemachineBrain 采用 ManualUpdate；`BattleCameraRig` 仅维护中心位置、边界、拖动和旋转状态，不覆盖场景中配置的镜头、跟随和角度。初始中心是首个玩家的出生格；横竖屏切换保持 FOV、高度与俯角，不再自动容纳全图。
+
+静态配置直接在 Inspector 编辑：
+
+- MainCamera / CinemachineBrain：Update Method 为 ManualUpdate，Ignore Time Scale 开启，Default Blend 为 Cut，Lens Mode Override 开启。
+- BattleVirtualCamera / CinemachineCamera：Lens 为 Perspective，FOV 默认 45°，裁剪面按地图设置；Tracking Target 引用 BattleCameraPitch。
+- BattleViewCenter / Transform：Y 旋转控制初始朝向（默认 45°），X/Z 旋转为零，缩放为 1。
+- BattleCameraPitch / Transform：局部位置归零，X 旋转控制固定俯角（默认 55°），Y/Z 旋转为零。
+- BattleVirtualCamera / CinemachineFollow：Binding Mode 为 LockToTarget，Angular Damping Mode 为 Quaternion，阻尼为零。Follow Offset 仅使用负 Z；默认 -14.649295 世界单位，对应当前每格 1 单位时高度 12 格。调整高度或格子尺寸时，按 `Offset Z = -高度格数 × 格子尺寸 / sin(俯角)` 设置。
+- BattleVirtualCamera / CinemachineRotateWithFollowTarget：Damping 为零。
+- BattleCameraRig：引用 Brain、虚拟相机和中心节点，仅保留旋转时长、边缘带宽度和滚屏速度等运行参数。无效装配会报告错误，不会自动改写 Inspector 设置。
+
+旋转按钮在 Inspector 的 On Click 中分别绑定 `BattleCameraRig.Rotate(-1)` 与 `Rotate(1)`；位置、尺寸、锚点和提示面板布局均使用 RectTransform 配置，HUD 不再在运行时覆盖这些布局，安全区域仍按设备更新。
 
 从非 UI 背景按下左键或主触点，超过 10 像素后抓住地图拖动；从可控制玩家按下始终使用移动手势。背景拖动保留单位选择，经过 UI 时暂停并在离开时重新建立锚点，不产生跳变。相机可在单位表现期间平移浏览；拖动相机不花费 AP。
 

@@ -3976,7 +3976,7 @@ MonoBehaviour:
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
           m_IntArgument: -1
           m_FloatArgument: 0
-          m_StringArgument:
+          m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
 --- !u!1001 &671648858
@@ -4586,7 +4586,7 @@ MonoBehaviour:
   virtualCamera: {fileID: 553199255}
   centerAxis: {fileID: 1137270076}
   rotationDuration: 0.3
-  edgeBandFraction: 0.06
+  edgeBandFraction: 0.2
   edgeSpeedInCells: 8
 --- !u!4 &886277647
 Transform:
@@ -28022,7 +28022,7 @@ MonoBehaviour:
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
           m_IntArgument: 1
           m_FloatArgument: 0
-          m_StringArgument:
+          m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
 --- !u!1 &1223683683
