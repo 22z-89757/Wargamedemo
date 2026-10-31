@@ -39,15 +39,36 @@ MapData 资产保存全部格子的坐标、代价、障碍和四边掩体，不
 
 ### 视线查询（LOS）
 
-`GridLineOfSight` 在逻辑格子中心之间执行二维 supercover 查询。遍历器只依赖 `ILineOfSightMap` 的边界与阻挡查询；`GridLineOfSightMap` 将运行时 `GridManager` 适配为该接口，不依赖单位能力、战斗输入或物理碰撞体。地图不可用或任一坐标越界时返回 `false`；端点格不检查阻挡，同格查询在坐标有效时返回 `true`。
+`GridLineOfSight` 在逻辑格子中心之间执行二维 supercover 查询。遍历器只依赖 `ILineOfSightMap` 的边界与阻挡查询；`GridLineOfSightMapModifier` 将运行时 `GridManager` 适配为该接口，不依赖单位能力、战斗输入或物理碰撞体。地图不可用或任一坐标越界时返回 `false`；端点格不检查阻挡，同格查询在坐标有效时返回 `true`。
 
 ```csharp
-var lineOfSightMap = new GridLineOfSightMap(grid);
+var lineOfSightMap = new GridLineOfSightMapModifier(grid);
 bool visible = GridLineOfSight.HasLineOfSight(lineOfSightMap,
     new Vector2Int(1, 1), new Vector2Int(6, 4));
 ```
 
-适配器只将 `FullBlocked` 视为阻挡；`HalfBlocked`、单位占用和方向掩体不影响查询。视线恰好穿过格角时会同时检查角点两侧相邻格，任一侧为全障碍都会阻挡。当前规则不计算高低差、部分掩体或单位轮廓，也不自动接入攻击或侦测系统。
+适配器只将 `FullBlocked` 视为阻挡；`HalfBlocked`、单位占用和方向掩体不影响查询。视线恰好穿过格角时会同时检查角点两侧相邻格，任一侧为全障碍都会阻挡。当前规则不计算高低差、部分掩体或单位轮廓；调用方通过接口查询 LOS。
+
+### 远程射击
+
+战斗场景只给玩家单位授予 `ShootAbility`。能力位于 `Units/Abilities/Dic/ShootAbility.cs`，共享规则及只读预览/结果位于 `Battle/ShootInfo.cs`；场景管理、输入与表现分别位于 `Battle/RuntimeData`、`Battle/Input`、`Battle/Visual`。`GetPreview(target)` 返回目标名称、生命、整数距离、最终命中率、可用状态与失败原因，不修改属性；UI 从左侧列表选择目标后，再通过独立的开火按钮请求执行。
+
+目标的距离条件只受攻击者当前 `AttributeType.SightRange` 限制，视线由 LOS 决定，没有独立武器射程。统一逻辑格距为 `floor(sqrt(dx² + dy²))`，同时用于视野比较和曲线采样，例如 `(1,1)` 为 1 格，`(3,4)` 为 5 格；等于 SightRange 时满足距离条件。这不改变移动寻路算法。开火前再次检查存活、非中立敌对阵营、棋盘登记、SightRange、LOS、必要属性、回合和 AP，重新计算概率；准备期间参数改变或随机源异常时拒绝提交，不扣 AP。
+
+`Assets/Data/Game/GameSettings.asset` 是默认配置，`Map1` 的 BattleSceneManager 通过 `gameSettings` 字段显式引用；可用 Create → Wargame → Game Settings 创建其他资产并替换场景引用。配置类位于 `Battle/Data`：GameSettings 是 ScriptableObject，其 `ShootSettings` 字段内嵌 `[Serializable] ShootSettings`，不是另一个 SO。`DistanceHitChanceModifier` 为 AnimationCurve，X 是递增非负整数格距，Y 是命中率修正百分点。Inspector 校验将切线统一为 Constant、首尾保持端点，运行时能力创建独立只读快照，不修改资产；配置调整在下一次初始化生效。缺失或非法配置会明确报告错误，不做隐式资源查找或回退。
+
+默认阶梯为 0–4 格 +20、5–9 格 +10、10–14 格 0、15–19 格 −10、20 格及以上 −20 个百分点，10 格为零修正基准。节点间不插值，到达节点立即采用新值。曲线只修正概率，不是射程上限。最终命中率为 `clamp(Aim - Defense + 距离修正, 0, 100)`；Aim 70、Defense 20 时，5/10/15 格依次为 60%/50%/40%。0% 的可见敌人仍可选择和开火，结算必定未命中。
+
+射击消耗 1 AP；命中后按 `clamp(Dodge, 0, 100)` 判定擦伤，普通伤害为 4、擦伤为 2，最终伤害为 `max(0, 基础伤害 - Armor)` 并从 Health 扣除。Dodge 不从 UI 命中率再次扣减。Health 归零仍由 `Unit.Died` 触发占格移除、回合注销和列表刷新。`ShootResult.Distance` 与 `HitChance` 记录成功提交时的距离、最终概率，不随后续移动或属性变化重算。
+
+```csharp
+ShootAbility shoot = unit.Abilities.GetAbility<ShootAbility>();
+ShootPreview preview = shoot.GetPreview(enemy); // 只读快照，包含距离、最终命中率和目标剩余生命。
+bool fired = unit.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(enemy), out var reason);
+if (fired) Debug.Log($"Distance={shoot.LastResult.Distance}, Chance={shoot.LastResult.HitChance}, Hit={shoot.LastResult.Hit}, Damage={shoot.LastResult.Damage}");
+```
+
+`Map1` 的 `SafeArea/AttackTargets` 保存目标面板、滚动列表、隐藏的列表项模板、目标生命/命中率、结果文本和 `FIRE / 1 AP` 按钮；通过 HUD 的序列化引用装配，缺少引用时初始化报告错误。操作顺序为“点击己方单位 → 点击左侧敌人 → 查看命中率 → 点击开火”。切换己方单位会清除原目标；SightRange、位置、LOS、属性与死亡变化通过现有事件刷新目标和概率。AP 不足时开火禁用但保留可见列表；目标死亡或离开视野时清除选择，仍合法的目标跨过曲线阶梯则保留选择并更新概率。射击结果显示命中、擦伤或未命中，目标生命随预览刷新。界面标签沿用现有英文 HUD。
 
 ```csharp
 // 以下代码在 GridManager 初始化后调用，grid 为组件引用。
@@ -122,7 +143,7 @@ unit.Buffs.TryApply(new BurningBuff(), attacker);
 
 Unity Test Runner 的 EditMode 中运行 `Wargame.EditModeTests` 程序集，覆盖坐标、障碍、占用、加权范围、路径快照、草稿保存重载、笔刷与撤销、Prefab 覆盖、掩体烘焙、资产 GUID、资产撤销持久化及运行时副本隔离；`Tests/EditMode/Units` 覆盖标记计数、属性公式与钳制、Buff 叠加策略与持续时间、能力激活流程、单位回合钩子及回合管理器轮转。
 
-也可以通过 Unity CLI 对运行中的编辑器执行测试：`unity command "test run" --mode editor --filter Wargame.EditModeTests --filter_type assembly`。
+已打开项目时，通过 Unity CLI 连接现有 Editor 执行测试：`unity command "test run" --mode editor --filter Wargame.EditModeTests --filter_type assembly --timeout 60`。先用 `unity command "editor status"` 确认 `playMode` 为 `stopped` 且没有编译或域重载，再启动测试；不要在游戏播放过程中直接发起 EditMode 测试。`unity test` 或 `Unity.exe -batchmode -runTests` 会尝试启动另一个 Editor，不能与已打开同一项目的实例共用项目锁。
 
 ## 战斗场景与拖动移动
 
@@ -164,4 +185,6 @@ Map1 使用 Cinemachine 3.1.7：MainCamera 保留渲染、URP 与 AudioListener�
 
 `InputSystem_Actions` 中新增 Battle/Point 与 Battle/Press，不启用模板 Player 动作来控制战斗。`BattleInputReader` 封装设备与手势，`BattlePlayerController` 负责选择、平面拾取和能力请求；UI 使用 InputSystemUIInputModule，仅接入 Point / Click。替换模型时保留 Prefab 根节点和逻辑组件，将模型子节点重新赋给 UnitVisualController。
 
-PlayMode 流程测试：`unity command "test run" --mode playmode --filter Wargame.PlayModeTests --filter_type assembly`，覆盖 Prefab 出生、鼠标和触屏拖动、UI 取消、失焦、多指、表现中断及回合循环。
+PlayMode 流程测试：`unity command "test run" --mode playmode --filter Wargame.PlayModeTests --filter_type assembly --async_tests`，启动后用 `unity command "test status"` 查询完成状态和结果。进入 PlayMode 会触发域重载，因此当前 Pipeline 版本不支持在同一个 HTTP 请求中同步等待 PlayMode 测试。测试覆盖 Prefab 出生、鼠标和触屏拖动、UI 取消、失焦、多指、表现中断、回合循环及射击目标选择与开火。
+
+使用 `--json` 时，命令外层的 `success` 只代表命令请求成功；仍需检查内层测试结果的 `success`、`Summary` 或异步状态文件的完成结果，避免将测试启动失败或超时误判为通过。

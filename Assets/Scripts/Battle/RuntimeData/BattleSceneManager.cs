@@ -21,6 +21,7 @@ namespace Wargame.Battle
     public sealed class BattleSceneManager : MonoBehaviour
     {
         [SerializeField] private GridManager grid;
+        [SerializeField] private GameSettings gameSettings;
         [SerializeField] private BattleTurnManager turns;
         [SerializeField] private BattlePlayerController playerController;
         [SerializeField] private BattleMovementPreview preview;
@@ -64,6 +65,9 @@ namespace Wargame.Battle
             if (initializing) { error = "初始化正在进行。"; return false; }
             if (grid == null || !grid.IsInitialized || turns == null || playerController == null || preview == null || hud == null)
             { error = "需要已初始化棋盘、回合管理器、玩家控制器、范围预览和 HUD。"; return false; }
+            if (gameSettings == null)
+            { error = "需要显式引用 GameSettings 射击配置资产。"; return false; }
+            if (!gameSettings.TryValidate(out error)) return false;
             if (turns.State != BattleState.NotStarted || turns.Units.Count != 0)
             { error = "回合管理器必须尚未开始且没有已注册单位。"; return false; }
             var occupied = new HashSet<Vector2Int>();
@@ -127,9 +131,15 @@ namespace Wargame.Battle
                 spawned.Add(unit);
                 if (!grid.TryPlaceUnit(unit, entry.Coordinates)) throw new InvalidOperationException("出生格登记失败。");
                 turns.RegisterUnit(unit);
-                if (faction == Faction.Player) unit.Abilities.Grant(new MoveAbility(grid, unit.GetComponent<UnitVisualController>()));
+                if (faction == Faction.Player)
+                {
+                    unit.Abilities.Grant(new MoveAbility(grid, unit.GetComponent<UnitVisualController>()));
+                    unit.Abilities.Grant(new ShootAbility(grid, gameSettings.ShootSettings));
+                }
                 unit.Died += ReleaseUnit;
                 unit.Destroyed += ReleaseUnit;
+                unit.Attributes.AttributeChanged += OnUnitAttributeChanged;
+                unit.Tags.TagChanged += OnUnitTagChanged;
                 unit.Abilities.AbilityActivated += OnAbilityActivated;
                 unit.Abilities.AbilityEnded += OnAbilityEnded;
             }
@@ -160,6 +170,8 @@ namespace Wargame.Battle
         private void OnFactionEnded(Faction faction) => Changed?.Invoke();
         private void OnAbilityActivated(AbilityBase ability, AbilityTarget target) => Changed?.Invoke();
         private void OnAbilityEnded(AbilityBase ability, bool cancelled) => Changed?.Invoke();
+        private void OnUnitAttributeChanged(AttributeType type, float previous, float value) => Changed?.Invoke();
+        private void OnUnitTagChanged(GameplayTag tag, bool added) => Changed?.Invoke();
 
         private void ReleaseUnit(Unit unit)
         {
@@ -170,6 +182,8 @@ namespace Wargame.Battle
             turns.UnregisterUnit(unit);
             unit.Died -= ReleaseUnit;
             unit.Destroyed -= ReleaseUnit;
+            unit.Attributes.AttributeChanged -= OnUnitAttributeChanged;
+            unit.Tags.TagChanged -= OnUnitTagChanged;
             unit.Abilities.AbilityActivated -= OnAbilityActivated;
             unit.Abilities.AbilityEnded -= OnAbilityEnded;
             Changed?.Invoke();
@@ -192,6 +206,8 @@ namespace Wargame.Battle
                 unit.Abilities.CancelAll();
                 unit.Died -= ReleaseUnit;
                 unit.Destroyed -= ReleaseUnit;
+                unit.Attributes.AttributeChanged -= OnUnitAttributeChanged;
+                unit.Tags.TagChanged -= OnUnitTagChanged;
                 unit.Abilities.AbilityActivated -= OnAbilityActivated;
                 unit.Abilities.AbilityEnded -= OnAbilityEnded;
                 if (grid != null) grid.TryRemoveUnit(unit);

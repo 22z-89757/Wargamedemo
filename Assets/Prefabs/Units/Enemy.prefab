@@ -233,7 +233,7 @@ MonoBehaviour:
   - Attribute: 10
     Value: 50
   - Attribute: 11
-    Value: 12
+    Value: 20
 --- !u!114 &7551188645230804620
 MonoBehaviour:
   m_ObjectHideFlags: 0

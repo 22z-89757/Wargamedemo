@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Wargame.Units;
 
@@ -15,7 +16,10 @@ namespace Wargame.Battle
         [SerializeField, Min(1)] private float dragThresholdPixels = 10f;
         private BattleSceneManager scene;
         private Unit selected;
+        private Unit selectedShootTarget;
         private MovePlan plan;
+        private readonly List<ShootPreview> shootTargets = new List<ShootPreview>();
+        private ShootPreview? selectedShootPreview;
         private bool bound, dirty = true, targetDirty = true;
         private Vector2 pointerPosition, pressPosition;
         private bool hasDragged, releasePending, panStarted;
@@ -26,13 +30,15 @@ namespace Wargame.Battle
         public bool HasActiveGesture => gesture != Gesture.None;
         public bool IsPanning => gesture == Gesture.CameraPan;
         public MovePlan PreviewPlan => plan;
+        public Unit SelectedShootTarget => selectedShootTarget;
+        public IReadOnlyList<ShootPreview> ShootTargets => shootTargets;
 
         public bool ValidateConfiguration(out string error)
         {
             error = input == null || battleCamera == null || cameraRig == null || preview == null || hud == null ||
                 (cameraRig != null && cameraRig.OutputCamera != battleCamera)
                 ? "玩家控制器需要输入、相机、匹配的 CameraRig、范围预览和 HUD。" : null;
-            return error == null && input.ValidateConfiguration(out error);
+            return error == null && input.ValidateConfiguration(out error) && hud.ValidateConfiguration(out error);
         }
 
         public void Initialize(BattleSceneManager manager)
@@ -56,6 +62,8 @@ namespace Wargame.Battle
             scene.Changed += MarkDirty;
             scene.Grid.Changed += MarkDirty;
             cameraRig.ViewChanged += OnViewChanged;
+            hud.TargetSelected += OnTargetSelected;
+            hud.FireRequested += OnFireRequested;
         }
 
         private void Select(Unit unit)
@@ -75,6 +83,8 @@ namespace Wargame.Battle
             }
             MarkDirty();
             lastTarget = null;
+            selectedShootTarget = null;
+            selectedShootPreview = null;
         }
 
         private void OnPressed(Vector2 position)
@@ -136,6 +146,8 @@ namespace Wargame.Battle
             if (IsDragging && selected == null) { CancelGesture(); Select(null); }
             if (selected != null && (!selected.IsAlive || !selected.isActiveAndEnabled))
             { if (IsDragging) CancelGesture(); Select(null); }
+            if (selectedShootTarget != null && (!selectedShootTarget.IsAlive || !scene.Grid.TryGetUnitCoordinates(selectedShootTarget, out _)))
+            { selectedShootTarget = null; selectedShootPreview = null; MarkDirty(); }
             if (HasActiveGesture && (!cameraRig.isActiveAndEnabled || (IsDragging && !scene.CanIssueOrders))) CancelGesture();
             PrepareCameraInput();
         }
@@ -156,6 +168,7 @@ namespace Wargame.Battle
         {
             if (scene == null || !scene.IsInitialized) return;
             if (dirty) RefreshRange();
+            if (dirty) RefreshShootTargets();
             // CameraRig 的 LateUpdate 优先执行，拾取始终使用 Cinemachine 本帧输出。
             if (IsDragging && (targetDirty || releasePending)) RefreshTarget();
             else if (!IsDragging && targetDirty) { plan = null; preview.ShowPath(null); }
@@ -167,10 +180,14 @@ namespace Wargame.Battle
                 if (!blocked && request != null && selected != null && scene.CanIssueOrders)
                     selected.Abilities.TryActivate("Move", AbilityTarget.ForCell(request.Destination), out _);
                 if (dirty) RefreshRange();
+                if (dirty) RefreshShootTargets();
                 preview.ShowPath(null);
             }
             if (targetDirty || dirty || HasActiveGesture)
                 hud.Render(selected, plan, IsDragging, IsDragging && hud.IsCancelArea(pointerPosition));
+            if (targetDirty || dirty || HasActiveGesture)
+                hud.RenderAttack(shootTargets, selectedShootPreview, selected != null && scene.CanIssueOrders,
+                    selectedShootPreview.HasValue && selectedShootPreview.Value.CanFire && !HasActiveGesture && !cameraRig.IsRotating);
             dirty = targetDirty = false;
         }
 
@@ -202,6 +219,60 @@ namespace Wargame.Battle
         private void OnAttributeChanged(AttributeType type, float previous, float value) => MarkDirty();
         private void OnTagChanged(GameplayTag tag, bool added) => MarkDirty();
 
+        private void RefreshShootTargets()
+        {
+            shootTargets.Clear();
+            selectedShootPreview = null;
+            if (selected == null || !scene.CanIssueOrders || !selected.IsTurnActive)
+            {
+                selectedShootTarget = null;
+                return;
+            }
+
+            ShootAbility ability = selected.Abilities.GetAbility<ShootAbility>();
+            if (ability == null) return;
+            foreach (Unit candidate in scene.SpawnedUnits)
+            {
+                if (candidate == null || candidate == selected || candidate.Faction == selected.Faction) continue;
+                ShootPreview preview = ability.GetPreview(candidate);
+                // 可瞄准集合由能力的视野规则决定；AP 和 0% 命中率不应隐藏可见目标。
+                if (preview.IsAvailable) shootTargets.Add(preview);
+            }
+            shootTargets.Sort((a, b) => a.Target.UnitId.CompareTo(b.Target.UnitId));
+
+            if (selectedShootTarget != null)
+            {
+                foreach (ShootPreview preview in shootTargets)
+                    if (preview.Target == selectedShootTarget) { selectedShootPreview = preview; break; }
+                if (!selectedShootPreview.HasValue) selectedShootTarget = null;
+            }
+        }
+
+        private void OnTargetSelected(Unit target)
+        {
+            if (selected == null || target == null || !scene.CanIssueOrders || HasActiveGesture || cameraRig.IsRotating) return;
+            RefreshShootTargets();
+            foreach (ShootPreview preview in shootTargets)
+            {
+                if (preview.Target != target) continue;
+                selectedShootTarget = target;
+                selectedShootPreview = preview;
+                targetDirty = true;
+                return;
+            }
+        }
+
+        private void OnFireRequested()
+        {
+            if (selected == null || selectedShootTarget == null || !scene.CanIssueOrders || HasActiveGesture || cameraRig.IsRotating) return;
+            ShootAbility ability = selected.Abilities.GetAbility<ShootAbility>();
+            if (ability == null) return;
+            bool fired = selected.Abilities.TryActivate(ability, AbilityTarget.ForUnit(selectedShootTarget), out _);
+            if (fired) hud.ShowShotResult(ability.LastResult);
+            if (!fired) selectedShootTarget = null;
+            MarkDirty();
+        }
+
         public void Shutdown()
         {
             if (bound)
@@ -210,6 +281,11 @@ namespace Wargame.Battle
                 input.Dragged -= OnDragged;
                 input.Released -= OnReleased;
                 input.Cancelled -= CancelGesture;
+                if (hud != null)
+                {
+                    hud.TargetSelected -= OnTargetSelected;
+                    hud.FireRequested -= OnFireRequested;
+                }
                 if (cameraRig != null) cameraRig.ViewChanged -= OnViewChanged;
                 if (scene != null)
                 {
@@ -220,8 +296,15 @@ namespace Wargame.Battle
             bound = false;
             CancelGesture();
             Select(null);
+            shootTargets.Clear();
+            selectedShootTarget = null;
+            selectedShootPreview = null;
             if (preview != null) preview.Clear();
-            if (hud != null && scene != null) hud.Render(null, null, false);
+            if (hud != null && scene != null)
+            {
+                hud.Render(null, null, false);
+                hud.RenderAttack(shootTargets, null, false, false);
+            }
         }
         private void OnDisable() => Shutdown();
     }

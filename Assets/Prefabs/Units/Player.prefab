@@ -164,7 +164,7 @@ MonoBehaviour:
   - Attribute: 2
     Value: 2
   - Attribute: 4
-    Value: 6
+    Value: 8
   - Attribute: 5
     Value: 65
   - Attribute: 6
@@ -178,7 +178,7 @@ MonoBehaviour:
   - Attribute: 10
     Value: 50
   - Attribute: 11
-    Value: 12
+    Value: 20
 --- !u!114 &8526492629210705526
 MonoBehaviour:
   m_ObjectHideFlags: 0

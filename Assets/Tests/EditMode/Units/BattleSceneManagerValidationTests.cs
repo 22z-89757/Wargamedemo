@@ -28,6 +28,7 @@ namespace Wargame.Tests
             turns = CreateComponent<BattleTurnManager>();
             battle = CreateComponent<BattleSceneManager>();
             Reference(battle, "grid", grid); Reference(battle, "turns", turns);
+            Reference(battle, "gameSettings", AssetDatabase.LoadAssetAtPath<GameSettings>("Assets/Data/Game/GameSettings.asset"));
             Reference(battle, "playerController", CreateComponent<BattlePlayerController>());
             Reference(battle, "preview", CreateComponent<BattleMovementPreview>());
             Reference(battle, "hud", CreateComponent<BattleHUD>());
@@ -70,6 +71,25 @@ namespace Wargame.Tests
             SetSpawns(new Vector2Int(-1,0));
             Assert.That(battle.TryInitialize(out _), Is.False);
             Assert.That(turns.Units, Is.Empty);
+        }
+
+        [Test]
+        public void MissingOrInvalidGameSettingsIsRejectedBeforeSpawning()
+        {
+            Reference(battle, "gameSettings", null);
+            Assert.That(battle.TryInitialize(out string error), Is.False);
+            Assert.That(error, Does.Contain("GameSettings"));
+            var settings = ScriptableObject.CreateInstance<GameSettings>();
+            try
+            {
+                settings.ShootSettings = null;
+                Reference(battle, "gameSettings", settings);
+                Assert.That(battle.TryInitialize(out error), Is.False);
+                Assert.That(error, Does.Contain("ShootSettings"));
+                Assert.That(battle.SpawnedUnits, Is.Empty);
+                Assert.That(turns.State, Is.EqualTo(BattleState.NotStarted));
+            }
+            finally { Object.DestroyImmediate(settings); }
         }
     }
 }

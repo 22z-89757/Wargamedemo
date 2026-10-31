@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -107,6 +108,20 @@ namespace Wargame.Tests
             yield return null;
         }
 
+        private IEnumerator ClickUi(UnityEngine.UI.Button button)
+        {
+            Canvas.ForceUpdateCanvases();
+            var rect = (RectTransform)button.transform;
+            Vector2 position = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center));
+            Set(mouse.position, position);
+            yield return SettleFrame();
+            Press(mouse.leftButton);
+            yield return SettleFrame();
+            Release(mouse.leftButton);
+            yield return SettleFrame();
+            Assert.That(controller.HasActiveGesture, Is.False, "UI 点击不得触发棋盘移动或相机手势。");
+        }
+
         private Vector2 UnitScreen => view.WorldToScreenPoint(player.transform.position + Vector3.up * .75f);
         private string PointerDiagnostics()
         {
@@ -135,6 +150,8 @@ namespace Wargame.Tests
             Assert.That(coordinate, Is.EqualTo(Vector2Int.one));
             Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
             Assert.That(enemy.Abilities.GetAbility<MoveAbility>(), Is.Null);
+            Assert.That(player.Abilities.GetAbility<ShootAbility>(), Is.Not.Null);
+            Assert.That(enemy.Abilities.GetAbility<ShootAbility>(), Is.Null);
             Assert.That(battle.Grid.TryGetUnitCoordinates(enemy, out coordinate), Is.True);
             Assert.That(coordinate, Is.EqualTo(new Vector2Int(18,18)));
             player.Attributes.SetBaseValue(AttributeType.ActionPoints, 0);
@@ -146,6 +163,251 @@ namespace Wargame.Tests
             Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(Faction.Player));
             Assert.That(battle.Turns.RoundNumber, Is.EqualTo(2));
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator TargetListPreviewsAndFiresOnlyOnButtonPress()
+        {
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            var targetCell = new Vector2Int(4, 1);
+            for (int x = 2; x <= targetCell.x; x++)
+                battle.Grid.TrySetBlockState(new Vector2Int(x, 1), Wargame.GridSystem.BlockState.Unblocked);
+            Assert.That(battle.Grid.TryMoveUnit(enemy, targetCell), Is.True);
+            enemy.transform.position = battle.Grid.GridToWorld(targetCell);
+            player.Attributes.SetBaseValue(AttributeType.Aim, 100f);
+            Physics.SyncTransforms();
+            yield return SettleFrame();
+
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
+            Assert.That(hud.FireButton.gameObject.activeSelf, Is.False);
+            yield return ClickUi(hud.TargetButtons[0]);
+            Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
+            Assert.That(hud.HitChanceText.text, Does.Contain("100%"));
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
+            Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10f));
+            Assert.That(hud.FireButton.gameObject.activeSelf, Is.True);
+            Assert.That(hud.FireButton.interactable, Is.True);
+
+            player.Attributes.SetBaseValue(AttributeType.ActionPoints, 0f);
+            yield return SettleFrame();
+            Assert.That(hud.FireButton.gameObject.activeSelf, Is.True);
+            Assert.That(hud.FireButton.interactable, Is.False);
+            player.Attributes.SetBaseValue(AttributeType.ActionPoints, 2f);
+            yield return SettleFrame();
+
+            yield return ClickUi(hud.FireButton);
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1f));
+            Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(6f));
+            Assert.That(hud.ShotResultText.text, Does.Contain("HIT"));
+        }
+
+        [UnityTest]
+        public IEnumerator SwitchingSelectedPlayerRefreshesItsTargetList()
+        {
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            var targetCell = new Vector2Int(4, 1);
+            for (int x = 2; x <= targetCell.x; x++)
+                battle.Grid.TrySetBlockState(new Vector2Int(x, 1), Wargame.GridSystem.BlockState.Unblocked);
+            Assert.That(battle.Grid.TryMoveUnit(enemy, targetCell), Is.True);
+            enemy.transform.position = battle.Grid.GridToWorld(targetCell);
+
+            var secondCell = new Vector2Int(1, 2);
+            battle.Grid.TrySetBlockState(secondCell, Wargame.GridSystem.BlockState.Unblocked);
+            Unit secondPlayer = Object.Instantiate(player, battle.Grid.GridToWorld(secondCell), Quaternion.identity);
+            secondPlayer.name = "SecondPlayer";
+            secondPlayer.Faction = Faction.Player;
+            Assert.That(battle.Grid.TryPlaceUnit(secondPlayer, secondCell), Is.True);
+            battle.Turns.RegisterUnit(secondPlayer);
+            secondPlayer.BeginTurn();
+            secondPlayer.Attributes.SetBaseValue(AttributeType.SightRange, 2);
+            secondPlayer.Abilities.Grant(new ShootAbility(battle.Grid, new ShootSettings()));
+            var spawnedField = typeof(BattleSceneManager).GetField("spawned", BindingFlags.Instance | BindingFlags.NonPublic);
+            ((System.Collections.Generic.List<Unit>)spawnedField.GetValue(battle)).Add(secondPlayer);
+            var secondTargetCell = new Vector2Int(5, 1);
+            battle.Grid.TrySetBlockState(secondTargetCell, Wargame.GridSystem.BlockState.Unblocked);
+            Unit secondEnemy = Object.Instantiate(enemy, battle.Grid.GridToWorld(secondTargetCell), Quaternion.identity);
+            Assert.That(battle.Grid.TryPlaceUnit(secondEnemy, secondTargetCell), Is.True);
+            battle.Turns.RegisterUnit(secondEnemy);
+            ((System.Collections.Generic.List<Unit>)spawnedField.GetValue(battle)).Add(secondEnemy);
+            Physics.SyncTransforms();
+            yield return SettleFrame();
+
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(controller.ShootTargets.Count, Is.EqualTo(2));
+            hud.TargetButtons[0].onClick.Invoke();
+            Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
+            hud.TargetButtons[1].onClick.Invoke();
+            Assert.That(controller.SelectedShootTarget, Is.SameAs(secondEnemy));
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+            Assert.That(secondEnemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10));
+            typeof(BattlePlayerController).GetMethod("Select", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(controller, new object[] { secondPlayer });
+            yield return SettleFrame();
+            Assert.That(controller.SelectedUnit, Is.SameAs(secondPlayer));
+            Assert.That(controller.SelectedShootTarget, Is.Null);
+            Assert.That(controller.ShootTargets.Count, Is.Zero);
+            Assert.That(Object.FindFirstObjectByType<BattleHUD>().VisibleTargetCount, Is.Zero);
+
+            typeof(BattlePlayerController).GetMethod("Select", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(controller, new object[] { player });
+            yield return SettleFrame();
+            Assert.That(controller.ShootTargets.Count, Is.EqualTo(2));
+            Assert.That(Object.FindFirstObjectByType<BattleHUD>().VisibleTargetCount, Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator LosChangeInvalidatesSelectedTargetAndHidesFireAction()
+        {
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            var targetCell = new Vector2Int(4, 1);
+            for (int x = 2; x <= targetCell.x; x++)
+                battle.Grid.TrySetBlockState(new Vector2Int(x, 1), Wargame.GridSystem.BlockState.Unblocked);
+            Assert.That(battle.Grid.TryMoveUnit(enemy, targetCell), Is.True);
+            enemy.transform.position = battle.Grid.GridToWorld(targetCell);
+            Physics.SyncTransforms();
+            yield return SettleFrame();
+
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
+            hud.TargetButtons[0].onClick.Invoke();
+            yield return SettleFrame();
+            Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
+            Assert.That(hud.FireButton.gameObject.activeSelf, Is.True);
+
+            enemy.Attributes.SetBaseValue(AttributeType.Defense, 15f);
+            yield return SettleFrame();
+            Assert.That(hud.HitChanceText.text, Does.Contain("70%"));
+
+            battle.Grid.TrySetBlockState(new Vector2Int(2, 1), Wargame.GridSystem.BlockState.FullBlocked);
+            yield return SettleFrame();
+
+            Assert.That(hud.VisibleTargetCount, Is.Zero);
+            Assert.That(controller.SelectedShootTarget, Is.Null);
+            Assert.That(hud.FireButton.gameObject.activeSelf, Is.False);
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
+            Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10f));
+        }
+
+        private Unit PlaceVisibleEnemyAtDistance(int distance)
+        {
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            for (int x = 2; x <= distance + 1; x++)
+                battle.Grid.TrySetBlockState(new Vector2Int(x, 1), Wargame.GridSystem.BlockState.Unblocked);
+            Assert.That(battle.Grid.TryMoveUnit(enemy, new Vector2Int(distance + 1, 1)), Is.True);
+            enemy.transform.position = battle.Grid.GridToWorld(new Vector2Int(distance + 1, 1));
+            Physics.SyncTransforms();
+            return enemy;
+        }
+
+        [UnityTest]
+        public IEnumerator SightRangeChangesRefreshVisibleTargetsAndClearInvalidSelection()
+        {
+            PlaceVisibleEnemyAtDistance(10);
+            player.Attributes.SetBaseValue(AttributeType.SightRange, 9);
+            yield return SettleFrame();
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(controller.ShootTargets, Is.Empty);
+
+            player.Attributes.SetBaseValue(AttributeType.SightRange, 10);
+            yield return SettleFrame();
+            Assert.That(hud.VisibleTargetCount, Is.EqualTo(1), "超过旧 6 格射程的可见敌人也必须加入列表。");
+            hud.TargetButtons[0].onClick.Invoke();
+            yield return SettleFrame();
+            Assert.That(hud.FireButton.interactable, Is.True);
+
+            player.Attributes.SetBaseValue(AttributeType.SightRange, 9);
+            yield return SettleFrame();
+            Assert.That(controller.SelectedShootTarget, Is.Null);
+            Assert.That(hud.VisibleTargetCount, Is.Zero);
+            Assert.That(hud.FireButton.gameObject.activeSelf, Is.False);
+            player.Attributes.SetBaseValue(AttributeType.SightRange, 12);
+            yield return SettleFrame();
+            Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
+            Assert.That(controller.SelectedShootTarget, Is.Null);
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator MovingTargetAcrossCurveStepRefreshesDisplayedAndCommittedChance()
+        {
+            Unit enemy = PlaceVisibleEnemyAtDistance(9);
+            player.Attributes.SetBaseValue(AttributeType.Aim, 70);
+            enemy.Attributes.SetBaseValue(AttributeType.Defense, 20);
+            player.Abilities.Remove(player.Abilities.GetAbility<ShootAbility>());
+            var ability = new ShootAbility(battle.Grid, new ShootSettings(), new MissAtFiftyPercent());
+            player.Abilities.Grant(ability);
+            yield return SettleFrame();
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            hud.TargetButtons[0].onClick.Invoke();
+            yield return SettleFrame();
+            Assert.That(hud.HitChanceText.text, Does.Contain("60%"));
+            PlaceVisibleEnemyAtDistance(10);
+            yield return SettleFrame();
+            Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
+            Assert.That(hud.HitChanceText.text, Does.Contain("50%"));
+            hud.FireButton.onClick.Invoke();
+            yield return SettleFrame();
+            Assert.That(ability.LastResult.Distance, Is.EqualTo(10));
+            Assert.That(ability.LastResult.HitChance, Is.EqualTo(50));
+            Assert.That(ability.LastResult.Hit, Is.False);
+            Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10));
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator ZeroChanceVisibleTargetStaysSelectableAndCanFire()
+        {
+            Unit enemy = PlaceVisibleEnemyAtDistance(3);
+            player.Attributes.SetBaseValue(AttributeType.Aim, 0);
+            enemy.Attributes.SetBaseValue(AttributeType.Defense, 100);
+            yield return SettleFrame();
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
+            yield return ClickUi(hud.TargetButtons[0]);
+            Assert.That(hud.HitChanceText.text, Does.Contain("0%"));
+            Assert.That(hud.FireButton.interactable, Is.True);
+            yield return ClickUi(hud.FireButton);
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1));
+            Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10));
+            Assert.That(hud.ShotResultText.text, Does.Contain("MISS"));
+            Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
+        }
+
+        private sealed class MissAtFiftyPercent : IShootRandomSource
+        {
+            public float NextValue() => 0.55f;
+        }
+
+        [UnityTest]
+        public IEnumerator LethalShotRemovesTargetFromGridTurnAndTargetList()
+        {
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            var targetCell = new Vector2Int(4, 1);
+            for (int x = 2; x <= targetCell.x; x++)
+                battle.Grid.TrySetBlockState(new Vector2Int(x, 1), Wargame.GridSystem.BlockState.Unblocked);
+            Assert.That(battle.Grid.TryMoveUnit(enemy, targetCell), Is.True);
+            enemy.transform.position = battle.Grid.GridToWorld(targetCell);
+            player.Attributes.SetBaseValue(AttributeType.Aim, 100f);
+            enemy.Attributes.SetBaseValue(AttributeType.Health, 4f);
+            enemy.Attributes.SetBaseValue(AttributeType.Dodge, 0f);
+            enemy.Attributes.SetBaseValue(AttributeType.Armor, 0f);
+            Physics.SyncTransforms();
+            yield return SettleFrame();
+
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
+            hud.TargetButtons[0].onClick.Invoke();
+            yield return SettleFrame();
+            hud.FireButton.onClick.Invoke();
+            yield return SettleFrame();
+
+            Assert.That(enemy.IsAlive, Is.False);
+            Assert.That(battle.Grid.TryGetUnitCoordinates(enemy, out _), Is.False);
+            Assert.That(battle.Turns.Units.Contains(enemy), Is.False);
+            Assert.That(controller.SelectedShootTarget, Is.Null);
+            Assert.That(hud.VisibleTargetCount, Is.Zero);
+            Assert.That(hud.FireButton.gameObject.activeInHierarchy, Is.False);
         }
 
         [UnityTest]
@@ -491,13 +753,17 @@ namespace Wargame.Tests
             Assert.That(controller.PreviewPlan, Is.Not.Null);
             Assert.That(controller.PreviewPlan.Destination, Is.Not.EqualTo(first));
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
-            Assert.That(battle.CameraRig.TryGetPlanePoint(edge,out var finalPoint), Is.True);
-            Assert.That(battle.Grid.TryWorldToGrid(finalPoint,out var expected), Is.True);
-            int cost = controller.PreviewPlan.ActionPointCost;
+            MoveAbility move = player.Abilities.GetAbility<MoveAbility>();
+            var reachableBeforeRelease = move.GetReachableCells();
             Release(mouse.leftButton);
             yield return SettleFrame();
+            // 合成松手先入输入队列；使用处理完松手后的镜头，避免多滚一帧使旧期望跨格。
+            Assert.That(battle.CameraRig.TryGetPlanePoint(edge,out var finalPoint), Is.True);
+            Assert.That(battle.Grid.TryWorldToGrid(finalPoint,out var expected), Is.True);
             Assert.That(battle.Grid.TryGetUnitCoordinates(player,out var actual), Is.True);
             Assert.That(actual, Is.EqualTo(expected));
+            int pathCost = reachableBeforeRelease.ReachableCosts[expected];
+            int cost = Mathf.CeilToInt((float)pathCost / move.BudgetPerActionPoint);
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2-cost));
             before = battle.CameraRig.ViewCenter;
             yield return new WaitForSecondsRealtime(.15f);
