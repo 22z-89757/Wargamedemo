@@ -55,6 +55,8 @@ bool visible = GridLineOfSight.HasLineOfSight(lineOfSightMap,
 
 目标的距离条件只受攻击者当前 `AttributeType.SightRange` 限制，视线由 LOS 决定，没有独立武器射程。统一逻辑格距为 `floor(sqrt(dx² + dy²))`，同时用于视野比较和曲线采样，例如 `(1,1)` 为 1 格，`(3,4)` 为 5 格；等于 SightRange 时满足距离条件。这不改变移动寻路算法。开火前再次检查存活、非中立敌对阵营、棋盘登记、SightRange、LOS、必要属性、回合和 AP，重新计算概率；准备期间参数改变或随机源异常时拒绝提交，不扣 AP。
 
+射击先检查攻击者当前格到目标当前格的 LOS；被阻挡时，再从攻击者周围 8 个相邻格尝试射线，任一畅通即可探头射击。越界或 `FullBlocked` 的相邻格不能作为起点；半障碍和单位占用不影响候选。目标端点固定在目标当前格，双方逻辑坐标、占格与 Transform 均不因探头改变，SightRange、命中率和结果距离仍按双方实际格距计算。每条候选继续使用通用 LOS 的 supercover 与格角保守规则；开火时重新检查，所有候选被封锁后拒绝射击且不扣 AP。
+
 `Assets/Data/Game/GameSettings.asset` 是默认配置，`Map1` 的 BattleSceneManager 通过 `gameSettings` 字段显式引用；可用 Create → Wargame → Game Settings 创建其他资产并替换场景引用。配置类位于 `Battle/Data`：GameSettings 是 ScriptableObject，其 `ShootSettings` 字段内嵌 `[Serializable] ShootSettings`，不是另一个 SO。`DistanceHitChanceModifier` 为 AnimationCurve，X 是递增非负整数格距，Y 是命中率修正百分点。Inspector 校验将切线统一为 Constant、首尾保持端点，运行时能力创建独立只读快照，不修改资产；配置调整在下一次初始化生效。缺失或非法配置会明确报告错误，不做隐式资源查找或回退。
 
 默认阶梯为 0–4 格 +20、5–9 格 +10、10–14 格 0、15–19 格 −10、20 格及以上 −20 个百分点，10 格为零修正基准。节点间不插值，到达节点立即采用新值。曲线只修正概率，不是射程上限。最终命中率为 `clamp(Aim - Defense + 距离修正, 0, 100)`；Aim 70、Defense 20 时，5/10/15 格依次为 60%/50%/40%。0% 的可见敌人仍可选择和开火，结算必定未命中。

@@ -8,6 +8,13 @@ namespace Wargame.Units
     /// <summary>对已登记在棋盘上的敌方单位执行一次基于 LOS 的射击。</summary>
     public sealed class ShootAbility : AbilityBase
     {
+        private static readonly Vector2Int[] ShootLineOffsets =
+        {
+            new Vector2Int(-1, -1), new Vector2Int(0, -1), new Vector2Int(1, -1),
+            new Vector2Int(-1, 0),                         new Vector2Int(1, 0),
+            new Vector2Int(-1, 1),  new Vector2Int(0, 1),  new Vector2Int(1, 1)
+        };
+
         private readonly GridManager grid;
         private readonly ILineOfSightMap lineOfSightMap;
         private readonly IShootRandomSource randomSource;
@@ -47,7 +54,24 @@ namespace Wargame.Units
                 return false;
 
             return ShootRules.GetDistance(from, to) <= sightRange &&
-                GridLineOfSight.HasLineOfSight(lineOfSightMap, from, to);
+                HasShootingLineOfSight(from, to);
+        }
+
+        private bool HasShootingLineOfSight(Vector2Int from, Vector2Int to)
+        {
+            if (GridLineOfSight.HasLineOfSight(lineOfSightMap, from, to))
+                return true;
+
+            foreach (Vector2Int offset in ShootLineOffsets)
+            {
+                Vector2Int peek = from + offset;
+                if (!lineOfSightMap.Contains(peek) || lineOfSightMap.BlocksLineOfSight(peek))
+                    continue;
+                if (GridLineOfSight.HasLineOfSight(lineOfSightMap, peek, to))
+                    return true;
+            }
+
+            return false;
         }
 
         protected override bool TryCommit(AbilityTarget target, out AbilityFailReason reason)

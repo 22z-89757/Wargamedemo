@@ -74,10 +74,75 @@ namespace Wargame.Tests
             }
             Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(ap));
 
-            grid.TrySetBlockState(new Vector2Int(3, 0), BlockState.FullBlocked);
+            for (int y = 0; y < grid.Height; y++)
+                grid.TrySetBlockState(new Vector2Int(3, y), BlockState.FullBlocked);
             Assert.That(shooter.Abilities.CanActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.False);
             Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.False);
             Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(ap));
+        }
+
+        [Test]
+        public void ClearAdjacentPeekAllowsShotWithoutChangingUnitPositions()
+        {
+            Vector2Int shooterPosition = Vector2Int.zero;
+            Vector2Int targetPosition = new Vector2Int(6, 0);
+            grid.TrySetBlockState(new Vector2Int(1, 0), BlockState.FullBlocked);
+            Assert.That(GridLineOfSight.HasLineOfSight(new GridLineOfSightMapModifier(grid), shooterPosition, targetPosition), Is.False);
+            Assert.That(GridLineOfSight.HasLineOfSight(new GridLineOfSightMapModifier(grid), new Vector2Int(1, 1), targetPosition), Is.True);
+
+            ShootPreview preview = shoot.GetPreview(target);
+
+            Assert.That(preview.IsAvailable, Is.True);
+            Assert.That(shooter.Abilities.CanActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
+            Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
+            Assert.That(target.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10f));
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
+            Assert.That(shoot.LastResult.Distance, Is.EqualTo(6));
+            Assert.That(shoot.LastResult.HitChance, Is.EqualTo(preview.HitChance));
+            Assert.That(grid.TryGetUnitCoordinates(shooter, out Vector2Int shooterAfter), Is.True);
+            Assert.That(grid.TryGetUnitCoordinates(target, out Vector2Int targetAfter), Is.True);
+            Assert.That(shooterAfter, Is.EqualTo(shooterPosition));
+            Assert.That(targetAfter, Is.EqualTo(targetPosition));
+            Assert.That(grid.TryGetCell(shooterPosition, out GridCell shooterCell), Is.True);
+            Assert.That(grid.TryGetCell(targetPosition, out GridCell targetCell), Is.True);
+            Assert.That(shooterCell.Occupant, Is.SameAs(shooter));
+            Assert.That(targetCell.Occupant, Is.SameAs(target));
+        }
+
+        [Test]
+        public void RejectsShotWhenAllCurrentAndAdjacentLinesAreBlocked()
+        {
+            for (int y = 0; y < grid.Height; y++)
+                grid.TrySetBlockState(new Vector2Int(3, y), BlockState.FullBlocked);
+
+            Assert.That(shoot.GetPreview(target).IsAvailable, Is.False);
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.False);
+            Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
+            Assert.That(target.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10f));
+        }
+
+        [Test]
+        public void SkipsOutOfBoundsAndFullBlockedPeekOrigins()
+        {
+            grid.TrySetBlockState(new Vector2Int(3, 0), BlockState.FullBlocked);
+            grid.TrySetBlockState(new Vector2Int(0, 1), BlockState.FullBlocked);
+            grid.TrySetBlockState(new Vector2Int(1, 0), BlockState.FullBlocked);
+            grid.TrySetBlockState(new Vector2Int(1, 1), BlockState.FullBlocked);
+
+            Assert.That(shoot.GetPreview(target).IsAvailable, Is.False);
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.False);
+            Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
+        }
+
+        [Test]
+        public void PeekLineDoesNotExtendSightRangeBeyondActualUnitDistance()
+        {
+            grid.TrySetBlockState(new Vector2Int(3, 0), BlockState.FullBlocked);
+            shooter.Attributes.SetBaseValue(AttributeType.SightRange, 5f);
+
+            Assert.That(shoot.GetPreview(target).IsAvailable, Is.False);
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.False);
+            Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
         }
 
         [Test]

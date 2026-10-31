@@ -203,6 +203,44 @@ namespace Wargame.Tests
         }
 
         [UnityTest]
+        public IEnumerator ShooterCanPeekFromAdjacentCellWithoutMoving()
+        {
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            Vector2Int shooterCell = new Vector2Int(1, 1);
+            Vector2Int targetCell = new Vector2Int(4, 1);
+            foreach (Vector2Int cell in new[]
+            {
+                new Vector2Int(1, 2), new Vector2Int(2, 1), new Vector2Int(3, 1), targetCell
+            })
+                battle.Grid.TrySetBlockState(cell, Wargame.GridSystem.BlockState.Unblocked);
+            battle.Grid.TrySetBlockState(new Vector2Int(2, 1), Wargame.GridSystem.BlockState.FullBlocked);
+            Assert.That(battle.Grid.TryMoveUnit(enemy, targetCell), Is.True);
+            enemy.transform.position = battle.Grid.GridToWorld(targetCell);
+            player.Attributes.SetBaseValue(AttributeType.Aim, 100f);
+            Physics.SyncTransforms();
+            yield return SettleFrame();
+
+            Assert.That(Wargame.GridSystem.GridLineOfSight.HasLineOfSight(
+                new Wargame.GridSystem.GridLineOfSightMapModifier(battle.Grid), shooterCell, targetCell), Is.False);
+            battle.Grid.TryGetUnitCoordinates(player, out Vector2Int shooterBefore);
+            battle.Grid.TryGetUnitCoordinates(enemy, out Vector2Int targetBefore);
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
+            yield return ClickUi(hud.TargetButtons[0]);
+            Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
+            Assert.That(hud.FireButton.interactable, Is.True);
+            yield return ClickUi(hud.FireButton);
+            yield return SettleFrame();
+
+            battle.Grid.TryGetUnitCoordinates(player, out Vector2Int shooterAfter);
+            battle.Grid.TryGetUnitCoordinates(enemy, out Vector2Int targetAfter);
+            Assert.That(shooterAfter, Is.EqualTo(shooterBefore));
+            Assert.That(targetAfter, Is.EqualTo(targetBefore));
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1f));
+            Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(6f));
+        }
+
+        [UnityTest]
         public IEnumerator SwitchingSelectedPlayerRefreshesItsTargetList()
         {
             Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
@@ -279,7 +317,8 @@ namespace Wargame.Tests
             yield return SettleFrame();
             Assert.That(hud.HitChanceText.text, Does.Contain("70%"));
 
-            battle.Grid.TrySetBlockState(new Vector2Int(2, 1), Wargame.GridSystem.BlockState.FullBlocked);
+            for (int y = 0; y < battle.Grid.Height; y++)
+                Assert.That(battle.Grid.TrySetBlockState(new Vector2Int(2, y), Wargame.GridSystem.BlockState.FullBlocked), Is.True);
             yield return SettleFrame();
 
             Assert.That(hud.VisibleTargetCount, Is.Zero);
