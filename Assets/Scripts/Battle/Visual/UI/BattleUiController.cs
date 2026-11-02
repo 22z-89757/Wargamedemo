@@ -20,6 +20,7 @@ namespace Wargame.Battle
         private readonly List<ShootPreview> targets = new List<ShootPreview>();
         private ShootPreview? selectedTarget;
         private bool canFire;
+        private bool showTargets;
         private bool initialized;
 
         public BattleUiState CurrentState { get; private set; }
@@ -61,12 +62,13 @@ namespace Wargame.Battle
             Refresh();
         }
 
-        public void SetAttack(IReadOnlyList<ShootPreview> shootTargets, ShootPreview? selectedShootTarget, bool fireAvailable)
+        public void SetAttack(IReadOnlyList<ShootPreview> shootTargets, ShootPreview? selectedShootTarget, bool fireAvailable, bool showPanel)
         {
             targets.Clear();
             if (shootTargets != null) targets.AddRange(shootTargets);
             selectedTarget = selectedShootTarget;
             canFire = fireAvailable;
+            showTargets = showPanel;
             Refresh();
         }
 
@@ -84,7 +86,7 @@ namespace Wargame.Battle
 
             CurrentState = new BattleUiState(scene.Turns.RoundNumber, scene.Turns.CurrentFaction,
                 scene.CanEndPlayerTurn && !dragging, scene.HasUnspentPlayerActionPoints,
-                hint, selectedState, targets, selectedTarget, canFire);
+                hint, selectedState, targets, selectedTarget, canFire, showTargets && scene.CanIssueOrders);
             view.RenderState(CurrentState, movePlan, dragging, overCancel);
             StateChanged?.Invoke(CurrentState);
         }

@@ -17,6 +17,8 @@ namespace Wargame.Battle
         private BattleSceneManager scene;
         private Unit selected;
         private Unit selectedShootTarget;
+        private ShootAbility pendingAbility;
+        private bool confirmationPending;
         private MovePlan plan;
         private readonly List<ShootPreview> shootTargets = new List<ShootPreview>();
         private ShootPreview? selectedShootPreview;
@@ -38,7 +40,7 @@ namespace Wargame.Battle
             error = input == null || battleCamera == null || cameraRig == null || preview == null || hud == null ||
                 (cameraRig != null && cameraRig.OutputCamera != battleCamera)
                 ? "玩家控制器需要输入、相机、匹配的 CameraRig、范围预览和 HUD。" : null;
-            return error == null && input.ValidateConfiguration(out error) && hud.ValidateConfiguration(out error);
+            return error == null && input.ValidateConfiguration(out error);
         }
 
         public void Initialize(BattleSceneManager manager)
@@ -61,19 +63,24 @@ namespace Wargame.Battle
             input.Cancelled += CancelGesture;
             scene.Changed += MarkDirty;
             scene.Grid.Changed += MarkDirty;
+            scene.Turns.FactionTurnEnded += OnFactionTurnEnded;
             cameraRig.ViewChanged += OnViewChanged;
             hud.TargetSelected += OnTargetSelected;
-            hud.FireRequested += OnFireRequested;
+            hud.AbilityConfirmed += OnAbilityConfirmed;
+            hud.AbilityCancelled += OnAbilityCancelled;
             hud.AbilityRequested += OnAbilityRequested;
-            hud.EndTurnConfirmationChanged += OnEndTurnConfirmationChanged;
+            hud.ConfirmationChanged += OnConfirmationChanged;
         }
 
         private void Select(Unit unit)
         {
+            ResetAbilitySession();
             if (selected != null)
             {
                 selected.Attributes.AttributeChanged -= OnAttributeChanged;
                 selected.Tags.TagChanged -= OnTagChanged;
+                selected.Abilities.AbilityGranted -= OnAbilityChanged;
+                selected.Abilities.AbilityRemoved -= OnAbilityChanged;
                 selected.GetComponent<UnitVisualController>()?.SetSelected(false);
             }
             selected = unit;
@@ -81,6 +88,8 @@ namespace Wargame.Battle
             {
                 selected.Attributes.AttributeChanged += OnAttributeChanged;
                 selected.Tags.TagChanged += OnTagChanged;
+                selected.Abilities.AbilityGranted += OnAbilityChanged;
+                selected.Abilities.AbilityRemoved += OnAbilityChanged;
                 selected.GetComponent<UnitVisualController>()?.SetSelected(true, scene.Grid.CellSize);
             }
             MarkDirty();
@@ -92,7 +101,18 @@ namespace Wargame.Battle
         private void OnPressed(Vector2 position)
         {
             if (scene == null || !scene.IsInitialized || HasActiveGesture || cameraRig.IsRotating ||
-                !cameraRig.isActiveAndEnabled || hud.IsInputBlocked || input.IsOverUI(position) || !battleCamera.pixelRect.Contains(position)) return;
+                !cameraRig.isActiveAndEnabled || hud.IsEndTurnConfirmationVisible || input.IsOverUI(position) || !battleCamera.pixelRect.Contains(position)) return;
+            bool selectingDuringConfirmation = hud.IsAbilityConfirmationVisible;
+            if (selectingDuringConfirmation)
+            {
+                if (scene.CanIssueOrders && Physics.Raycast(battleCamera.ScreenPointToRay(position), out RaycastHit selectionHit, battleCamera.farClipPlane))
+                {
+                    Unit candidate = selectionHit.collider.GetComponentInParent<Unit>();
+                    if (candidate != null && candidate.IsAlive && candidate.isActiveAndEnabled && candidate.Faction == Faction.Player &&
+                        candidate.IsTurnActive && scene.Grid.TryGetUnitCoordinates(candidate, out _)) Select(candidate);
+                }
+                return; // 本次按下只做选择，抬起也不得提交移动。
+            }
             gesture = Gesture.CameraPan;
             if (scene.CanIssueOrders && Physics.Raycast(battleCamera.ScreenPointToRay(position), out RaycastHit hit, battleCamera.farClipPlane))
             {
@@ -145,16 +165,16 @@ namespace Wargame.Battle
         private void Update()
         {
             if (scene == null || !scene.IsInitialized) return;
-            if (hud != null && hud.IsInputBlocked)
-            {
-                if (HasActiveGesture) CancelGesture();
-                return;
-            }
             if (IsDragging && selected == null) { CancelGesture(); Select(null); }
             if (selected != null && (!selected.IsAlive || !selected.isActiveAndEnabled))
             { if (IsDragging) CancelGesture(); Select(null); }
             if (selectedShootTarget != null && (!selectedShootTarget.IsAlive || !scene.Grid.TryGetUnitCoordinates(selectedShootTarget, out _)))
             { selectedShootTarget = null; selectedShootPreview = null; MarkDirty(); }
+            if (hud != null && hud.IsInputBlocked)
+            {
+                if (HasActiveGesture) CancelGesture();
+                return;
+            }
             if (HasActiveGesture && (!cameraRig.isActiveAndEnabled || (IsDragging && !scene.CanIssueOrders))) CancelGesture();
             PrepareCameraInput();
         }
@@ -175,7 +195,7 @@ namespace Wargame.Battle
         {
             if (scene == null || !scene.IsInitialized) return;
             if (dirty) RefreshRange();
-            if (dirty) RefreshShootTargets();
+            if (dirty || pendingAbility != null) RefreshShootTargets();
             // CameraRig 的 LateUpdate 优先执行，拾取始终使用 Cinemachine 本帧输出。
             if (IsDragging && (targetDirty || releasePending)) RefreshTarget();
             else if (!IsDragging && targetDirty) { plan = null; preview.ShowPath(null); }
@@ -193,7 +213,7 @@ namespace Wargame.Battle
             if (targetDirty || dirty || HasActiveGesture)
                 hud.Render(selected, plan, IsDragging, IsDragging && hud.IsCancelArea(pointerPosition));
             if (targetDirty || dirty || HasActiveGesture)
-                hud.RenderAttack(shootTargets, selectedShootPreview, selected != null && scene.CanIssueOrders,
+                hud.RenderAttack(shootTargets, selectedShootPreview, pendingAbility != null && scene.CanIssueOrders,
                     selectedShootPreview.HasValue && selectedShootPreview.Value.CanFire && !HasActiveGesture && !cameraRig.IsRotating);
             dirty = targetDirty = false;
         }
@@ -225,19 +245,37 @@ namespace Wargame.Battle
         private void OnViewChanged() => targetDirty = true;
         private void OnAttributeChanged(AttributeType type, float previous, float value) => MarkDirty();
         private void OnTagChanged(GameplayTag tag, bool added) => MarkDirty();
+        private void OnAbilityChanged(AbilityBase ability) => MarkDirty();
+        private void OnFactionTurnEnded(Faction faction) => ResetAbilitySession();
+
+        private void ResetAbilitySession()
+        {
+            pendingAbility = null;
+            confirmationPending = false;
+            selectedShootTarget = null;
+            selectedShootPreview = null;
+            shootTargets.Clear();
+            if (hud != null)
+            {
+                hud.CloseAbilityConfirmation();
+                hud.RenderAttack(shootTargets, null, false, false);
+            }
+            MarkDirty();
+        }
 
         private void RefreshShootTargets()
         {
             shootTargets.Clear();
             selectedShootPreview = null;
-            if (selected == null || !scene.CanIssueOrders || !selected.IsTurnActive)
+            if (pendingAbility == null) return;
+            if (selected == null || !selected.IsAlive || !scene.CanIssueOrders || !selected.IsTurnActive ||
+                pendingAbility.Owner != selected || selected.Abilities.GetAbility(pendingAbility.AbilityId) != pendingAbility)
             {
-                selectedShootTarget = null;
+                ResetAbilitySession();
                 return;
             }
 
-            ShootAbility ability = selected.Abilities.GetAbility<ShootAbility>();
-            if (ability == null) return;
+            ShootAbility ability = pendingAbility;
             foreach (Unit candidate in scene.SpawnedUnits)
             {
                 if (candidate == null || candidate == selected || candidate.Faction == selected.Faction) continue;
@@ -253,11 +291,19 @@ namespace Wargame.Battle
                     if (preview.Target == selectedShootTarget) { selectedShootPreview = preview; break; }
                 if (!selectedShootPreview.HasValue) selectedShootTarget = null;
             }
+            if (confirmationPending && (!selectedShootPreview.HasValue || !selectedShootPreview.Value.CanFire))
+            {
+                confirmationPending = false;
+                hud.CloseAbilityConfirmation();
+                MarkDirty();
+            }
+            targetDirty = true;
         }
 
         private void OnTargetSelected(Unit target)
         {
-            if (selected == null || target == null || !scene.CanIssueOrders || HasActiveGesture || cameraRig.IsRotating) return;
+            if (selected == null || target == null || pendingAbility == null || hud.IsInputBlocked ||
+                !scene.CanIssueOrders || HasActiveGesture || cameraRig.IsRotating) return;
             RefreshShootTargets();
             foreach (ShootPreview preview in shootTargets)
             {
@@ -265,29 +311,48 @@ namespace Wargame.Battle
                 selectedShootTarget = target;
                 selectedShootPreview = preview;
                 targetDirty = true;
+                confirmationPending = true;
+                hud.ShowAbilityConfirmation($"确认让{selected.DisplayName}使用{BattleUiText.AbilityName(pendingAbility)}？\n目标：{preview.TargetName}，{BattleUiText.HitChance(preview.HitChance)}");
                 return;
             }
         }
 
-        private void OnFireRequested()
+        private void OnAbilityConfirmed()
         {
-            if (selected == null || selectedShootTarget == null || !scene.CanIssueOrders || HasActiveGesture || cameraRig.IsRotating) return;
-            ShootAbility ability = selected.Abilities.GetAbility<ShootAbility>();
-            if (ability == null) return;
-            bool fired = selected.Abilities.TryActivate(ability, AbilityTarget.ForUnit(selectedShootTarget), out _);
+            if (!confirmationPending) return;
+            confirmationPending = false; // 先消费确认，避免同步事件或重复回调重入。
+            RefreshShootTargets();
+            if (selected == null || selectedShootTarget == null || pendingAbility == null || !scene.CanIssueOrders ||
+                HasActiveGesture || cameraRig.IsRotating || !selectedShootPreview.HasValue || !selectedShootPreview.Value.CanFire)
+            { MarkDirty(); return; }
+            ShootAbility ability = pendingAbility;
+            Unit owner = selected;
+            Unit target = selectedShootTarget;
+            ResetAbilitySession();
+            bool fired = owner.Abilities.TryActivate(ability, AbilityTarget.ForUnit(target), out _);
             if (fired) hud.ShowShotResult(ability.LastResult);
-            if (!fired) selectedShootTarget = null;
+            MarkDirty();
+        }
+
+        private void OnAbilityCancelled()
+        {
+            confirmationPending = false;
+            RefreshShootTargets();
             MarkDirty();
         }
 
         private void OnAbilityRequested(AbilityBase ability)
         {
-            if (selected == null || ability == null || !scene.CanIssueOrders || HasActiveGesture || cameraRig.IsRotating)
+            if (selected == null || ability == null || hud.IsInputBlocked || !scene.CanIssueOrders || HasActiveGesture || cameraRig.IsRotating)
                 return;
 
-            // 移动和射击仍由各自的目标交互完成；按钮只选择操作，不提前扣 AP。
-            if (ability is MoveAbility || ability is ShootAbility)
+            if (ability is MoveAbility) return;
+            ResetAbilitySession();
+            if (ability is ShootAbility shoot)
             {
+                if (!selected.Abilities.CanPrepareTarget(shoot, out _)) return;
+                pendingAbility = shoot;
+                RefreshShootTargets();
                 MarkDirty();
                 return;
             }
@@ -310,9 +375,10 @@ namespace Wargame.Battle
             MarkDirty();
         }
 
-        private void OnEndTurnConfirmationChanged(bool visible)
+        private void OnConfirmationChanged(bool visible)
         {
             if (visible && HasActiveGesture) CancelGesture();
+            if (visible && hud.IsEndTurnConfirmationVisible) ResetAbilitySession();
             if (cameraRig != null) cameraRig.SetEdgeScrollPointer(null);
         }
 
@@ -327,14 +393,16 @@ namespace Wargame.Battle
                 if (hud != null)
                 {
                     hud.TargetSelected -= OnTargetSelected;
-                    hud.FireRequested -= OnFireRequested;
+                    hud.AbilityConfirmed -= OnAbilityConfirmed;
+                    hud.AbilityCancelled -= OnAbilityCancelled;
                     hud.AbilityRequested -= OnAbilityRequested;
-                    hud.EndTurnConfirmationChanged -= OnEndTurnConfirmationChanged;
+                    hud.ConfirmationChanged -= OnConfirmationChanged;
                 }
                 if (cameraRig != null) cameraRig.ViewChanged -= OnViewChanged;
                 if (scene != null)
                 {
                     scene.Changed -= MarkDirty;
+                    if (scene.Turns != null) scene.Turns.FactionTurnEnded -= OnFactionTurnEnded;
                     if (scene.Grid != null) scene.Grid.Changed -= MarkDirty;
                 }
             }

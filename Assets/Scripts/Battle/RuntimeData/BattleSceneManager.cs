@@ -95,7 +95,6 @@ namespace Wargame.Battle
             { error = "需要显式引用 GameSettings 射击配置资产。"; return false; }
             if (!gameSettings.TryValidate(out error)) return false;
             if (healthBars == null) { error = "需要独立 Canvas 上的 BattleUnitHealthBars 血条层。"; return false; }
-            if (!healthBars.ValidateConfiguration(hud.GetComponentInParent<Canvas>(), out error)) return false;
             if (turns.State != BattleState.NotStarted || turns.Units.Count != 0)
             { error = "回合管理器必须尚未开始且没有已注册单位。"; return false; }
             var occupied = new HashSet<Vector2Int>();

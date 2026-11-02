@@ -51,7 +51,7 @@ bool visible = GridLineOfSight.HasLineOfSight(lineOfSightMap,
 
 ### 远程射击
 
-战斗场景只给玩家单位授予 `ShootAbility`。能力位于 `Units/Abilities/Dic/ShootAbility.cs`，共享规则及只读预览/结果位于 `Battle/ShootInfo.cs`；场景管理、输入与表现分别位于 `Battle/RuntimeData`、`Battle/Input`、`Battle/Visual`。`GetPreview(target)` 返回目标名称、生命、整数距离、最终命中率、可用状态与失败原因，不修改属性；UI 从左侧列表选择目标后，再通过独立的开火按钮请求执行。
+战斗场景只给玩家单位授予 `ShootAbility`。能力位于 `Units/Abilities/Dic/ShootAbility.cs`，共享规则及只读预览/结果位于 `Battle/ShootInfo.cs`；场景管理、输入与表现分别位于 `Battle/RuntimeData`、`Battle/Input`、`Battle/Visual`。`GetPreview(target)` 返回目标名称、生命、整数距离、最终命中率、可用状态与失败原因，不修改属性；UI 点击射击能力打开左侧目标列表，选择目标后通过共享确认窗口请求执行。
 
 目标的距离条件只受攻击者当前 `AttributeType.SightRange` 限制，视线由 LOS 决定，没有独立武器射程。统一逻辑格距为 `floor(sqrt(dx² + dy²))`，同时用于视野比较和曲线采样，例如 `(1,1)` 为 1 格，`(3,4)` 为 5 格；等于 SightRange 时满足距离条件。这不改变移动寻路算法。开火前再次检查存活、非中立敌对阵营、棋盘登记、SightRange、LOS、必要属性、回合和 AP，重新计算概率；准备期间参数改变或随机源异常时拒绝提交，不扣 AP。
 
@@ -165,7 +165,13 @@ PC 仅使用鼠标左键，Android 使用主触点：从玩家单位按下，拖
 
 战斗 UI 的数据流为 `BattleSceneManager/AbilityComponent` → `BattleUiController` → `BattleUiState` 快照 → `BattleHUD` 视图。`BattleUiState`、`SelectedUnitUiState`、`AbilityUiState` 和 `TargetUiState` 只保存回合、行动方、选中单位、AP、能力可用性、目标预览和中文原因，不持有 `Text`、`Button` 或其他 Unity 控件；能力列表通过 `BattleUiAbilityAdapter` 读取 `AbilityComponent.Abilities` 的实时结果，不复制能力规则。
 
-`Map1` 使用名为 `canvas` 的根物体收纳三个 Canvas：`BattleInfoCanvas` 是只读信息层，`BattleInteractionCanvas` 是交互层，`UnitHealthBarCanvas` 是血条层。交互层保留目标列表、能力按钮、开火、旋转、结束回合和确认弹窗；信息层显示独立的“回合数”和“行动方”文本、提示、选中单位 AP 与能力状态。只读 Canvas 不挂 `GraphicRaycaster`，其文字关闭 `raycastTarget`。布局、静态文本、确认弹窗及按钮均保存在场景并由 `BattleHUD` 的 Inspector 引用配置；运行时只按战斗数据更新文本/显隐并生成动态目标和能力条目。两个战斗 Canvas 共用 `CanvasScaler` 的 1280×720、Match 0.5 安全区域配置。
+`Map1` 使用名为 `canvas` 的根物体收纳三个 Canvas：`BattleInfoCanvas` 是只读信息层，`BattleInteractionCanvas` 是交互层，`UnitHealthBarCanvas` 是血条层；`BattleHUD` 挂在 `canvas` 根物体上，Canvas 与控件引用通过 Inspector 配置。交互层保留目标列表、能力按钮、旋转、结束回合和共享确认弹窗；信息层显示独立的“回合数”和“行动方”文本、提示、选中单位 AP 与能力状态。只读 Canvas 不挂 `GraphicRaycaster`，其文字关闭 `raycastTarget`。布局、静态文本、确认弹窗及按钮均保存在场景；运行时只按战斗数据更新文本/显隐并生成动态目标和能力条目。HUD 不再在启动时执行 Inspector/Canvas 配置校验。两个战斗 Canvas 共用 `CanvasScaler` 的 1280×720、Match 0.5 安全区域配置。
+
+交互 Canvas 的安全区域下预置 `AbilityDic`（`VerticalLayoutGroup` 和独立的 `AbilityButtonTemplate`），所有动态能力按钮只生成在此容器中；移动能力不出现在列表，仍使用棋盘拖拽。`TargetPanel`、目标行模板、空状态和 `ActionConfirmDialog`（提示文本、通用确认/取消按钮）均在 Inspector 配置，不运行时补建。目标面板默认隐藏，仅请求现有 Unit 目标射击能力时开启；不扩展 Cell 目标能力。
+
+能力入口通过能力系统的只读 `CanPrepareTarget` 检查授予、回合、独占、标签、冷却、次数及费用；准备不会扣 AP。None/Self 能力点击后直接重新校验并激活；射击按钮打开目标列表，目标行点击仅选中目标、显示预览并打开共享确认窗，确认时重新读取当前条件并且只调用一次 `TryActivate`。取消确认返回列表并保留仍合法目标；成功后清空待用能力、关闭列表。AP 不足不会隐藏已打开列表中的可见目标，0% 命中率目标仍可选。目标失效关闭旧确认，单位/能力/回合失效清空操作会话。
+
+切换单位、取消选择或再次点击同一单位均立即清空待用能力和目标并关闭目标面板与能力确认窗。能力确认期间冻结移动、平移、边缘滚动、旋转和其它执行操作，但允许点击己方单位重新选择；这次按下只刷新选择，不能同时启动移动手势。结束回合确认期间单位选择也冻结。
 
 结束回合按钮先查询 `BattleSceneManager.HasUnspentPlayerActionPoints`，范围是当前玩家阵营的存活单位；任一单位 AP 大于零时显示中文确认弹窗。确认时重新调用原子 `TryEndPlayerTurn`，取消或过期确认只关闭弹窗并按最新快照刷新，弹窗期间玩家控制器会取消移动/相机手势。
 

@@ -388,10 +388,12 @@ namespace Wargame.Tests
             Assert.That(hud.InfoCanvas.GetComponentsInChildren<Graphic>(true).All(graphic => !graphic.raycastTarget), Is.True);
             Assert.That(hud.RoundText.text, Does.Contain("回合"));
             Assert.That(hud.FactionText.text, Does.Contain("玩家"));
-            Assert.That(hud.AbilityButtons.Count, Is.GreaterThanOrEqualTo(2));
-            Assert.That(hud.AbilityStatusText.text, Does.Contain("移动").And.Contain("射击").And.Contain("AP"));
+            Assert.That(hud.AbilityButtons.Count, Is.EqualTo(1));
+            Assert.That(hud.AbilityStatusText.text, Does.Contain("射击").And.Contain("AP"));
+            Assert.That(hud.AbilityStatusText.text, Does.Not.Contain("移动"));
+            Assert.That(hud.AbilityButtons.All(button => button.transform.parent == hud.AbilityDic), Is.True);
             Assert.That(hud.AbilityButtons.Select(button => button.GetComponentInChildren<Text>(true).text)
-                .All(text => text.Contains("移动") || text.Contains("射击")), Is.True);
+                .All(text => text.Contains("射击")), Is.True);
             float apBeforeAbilityClick = player.Attributes.GetValue(AttributeType.ActionPoints);
             Button shootAbilityButton = hud.AbilityButtons.First(button =>
                 button.GetComponentInChildren<Text>(true).text.Contains("射击"));
@@ -402,13 +404,13 @@ namespace Wargame.Tests
             hud.EndTurnButton.onClick.Invoke();
             Assert.That(hud.IsEndTurnConfirmationVisible, Is.True);
             Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(before));
-            Button cancel = hud.ConfirmDialog.GetComponentsInChildren<Button>(true).First(button => button.name == "取消");
+            Button cancel = hud.CancelButton;
             cancel.onClick.Invoke();
             Assert.That(hud.IsEndTurnConfirmationVisible, Is.False);
             Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(before));
 
             hud.EndTurnButton.onClick.Invoke();
-            Button confirm = hud.ConfirmDialog.GetComponentsInChildren<Button>(true).First(button => button.name == "确认结束");
+            Button confirm = hud.ConfirmButton;
             confirm.onClick.Invoke();
             Assert.That(hud.IsEndTurnConfirmationVisible, Is.False);
             Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(Faction.Enemy));
@@ -416,7 +418,7 @@ namespace Wargame.Tests
         }
 
         [UnityTest]
-        public IEnumerator TargetListPreviewsAndFiresOnlyOnButtonPress()
+        public IEnumerator TargetListPreviewsAndFiresOnlyAfterConfirmation()
         {
             Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
             var targetCell = new Vector2Int(4, 1);
@@ -429,24 +431,25 @@ namespace Wargame.Tests
             yield return SettleFrame();
 
             var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            yield return RequestShoot(hud);
             Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
-            Assert.That(hud.FireButton.gameObject.activeSelf, Is.False);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.False);
             yield return ClickUi(hud.TargetButtons[0]);
             Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
             Assert.That(hud.HitChanceText.text, Does.Contain("100%"));
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10f));
-            Assert.That(hud.FireButton.gameObject.activeSelf, Is.True);
-            Assert.That(hud.FireButton.interactable, Is.True);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.True);
 
             player.Attributes.SetBaseValue(AttributeType.ActionPoints, 0f);
             yield return SettleFrame();
-            Assert.That(hud.FireButton.gameObject.activeSelf, Is.True);
-            Assert.That(hud.FireButton.interactable, Is.False);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.False);
             player.Attributes.SetBaseValue(AttributeType.ActionPoints, 2f);
             yield return SettleFrame();
 
-            yield return ClickUi(hud.FireButton);
+            yield return ClickUi(hud.TargetButtons[0]);
+            yield return ClickUi(hud.ConfirmButton);
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1f));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(6f));
             Assert.That(hud.ShotResultText.text, Does.Contain("命中"));
@@ -472,11 +475,13 @@ namespace Wargame.Tests
             battle.Grid.TryGetUnitCoordinates(player, out Vector2Int shooterBefore);
             battle.Grid.TryGetUnitCoordinates(enemy, out Vector2Int targetBefore);
             var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            yield return RequestShoot(hud);
             Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
             yield return ClickUi(hud.TargetButtons[0]);
             Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
-            Assert.That(hud.FireButton.interactable, Is.True);
-            yield return ClickUi(hud.FireButton);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.True);
+            yield return ClickUi(hud.ConfirmButton);
             yield return SettleFrame();
 
             battle.Grid.TryGetUnitCoordinates(player, out Vector2Int shooterAfter);
@@ -519,9 +524,12 @@ namespace Wargame.Tests
             yield return SettleFrame();
 
             var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            yield return RequestShoot(hud);
             Assert.That(controller.ShootTargets.Count, Is.EqualTo(2));
             hud.TargetButtons[0].onClick.Invoke();
             Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
+            hud.CancelButton.onClick.Invoke();
             hud.TargetButtons[1].onClick.Invoke();
             Assert.That(controller.SelectedShootTarget, Is.SameAs(secondEnemy));
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
@@ -537,12 +545,14 @@ namespace Wargame.Tests
             typeof(BattlePlayerController).GetMethod("Select", BindingFlags.Instance | BindingFlags.NonPublic)
                 .Invoke(controller, new object[] { player });
             yield return SettleFrame();
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            yield return RequestShoot(hud);
             Assert.That(controller.ShootTargets.Count, Is.EqualTo(2));
             Assert.That(Object.FindFirstObjectByType<BattleHUD>().VisibleTargetCount, Is.EqualTo(2));
         }
 
         [UnityTest]
-        public IEnumerator LosChangeInvalidatesSelectedTargetAndHidesFireAction()
+        public IEnumerator LosChangeInvalidatesSelectedTargetAndClosesConfirmation()
         {
             Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
             var targetCell = new Vector2Int(4, 1);
@@ -554,11 +564,13 @@ namespace Wargame.Tests
             yield return SettleFrame();
 
             var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            yield return RequestShoot(hud);
             Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
             hud.TargetButtons[0].onClick.Invoke();
             yield return SettleFrame();
             Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
-            Assert.That(hud.FireButton.gameObject.activeSelf, Is.True);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.True);
 
             enemy.Attributes.SetBaseValue(AttributeType.Defense, 15f);
             yield return SettleFrame();
@@ -575,7 +587,7 @@ namespace Wargame.Tests
 
             Assert.That(hud.VisibleTargetCount, Is.Zero);
             Assert.That(controller.SelectedShootTarget, Is.Null);
-            Assert.That(hud.FireButton.gameObject.activeSelf, Is.False);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.False);
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10f));
         }
@@ -598,6 +610,8 @@ namespace Wargame.Tests
             player.Attributes.SetBaseValue(AttributeType.SightRange, 9);
             yield return SettleFrame();
             var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            yield return RequestShoot(hud);
             Assert.That(controller.ShootTargets, Is.Empty);
 
             player.Attributes.SetBaseValue(AttributeType.SightRange, 10);
@@ -605,13 +619,13 @@ namespace Wargame.Tests
             Assert.That(hud.VisibleTargetCount, Is.EqualTo(1), "超过旧 6 格射程的可见敌人也必须加入列表。");
             hud.TargetButtons[0].onClick.Invoke();
             yield return SettleFrame();
-            Assert.That(hud.FireButton.interactable, Is.True);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.True);
 
             player.Attributes.SetBaseValue(AttributeType.SightRange, 9);
             yield return SettleFrame();
             Assert.That(controller.SelectedShootTarget, Is.Null);
             Assert.That(hud.VisibleTargetCount, Is.Zero);
-            Assert.That(hud.FireButton.gameObject.activeSelf, Is.False);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.False);
             player.Attributes.SetBaseValue(AttributeType.SightRange, 12);
             yield return SettleFrame();
             Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
@@ -630,6 +644,8 @@ namespace Wargame.Tests
             player.Abilities.Grant(ability);
             yield return SettleFrame();
             var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            yield return RequestShoot(hud);
             hud.TargetButtons[0].onClick.Invoke();
             yield return SettleFrame();
             Assert.That(hud.HitChanceText.text, Does.Contain("60%"));
@@ -637,7 +653,7 @@ namespace Wargame.Tests
             yield return SettleFrame();
             Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
             Assert.That(hud.HitChanceText.text, Does.Contain("50%"));
-            hud.FireButton.onClick.Invoke();
+            hud.ConfirmButton.onClick.Invoke();
             yield return SettleFrame();
             Assert.That(ability.LastResult.Distance, Is.EqualTo(10));
             Assert.That(ability.LastResult.HitChance, Is.EqualTo(50));
@@ -647,22 +663,153 @@ namespace Wargame.Tests
         }
 
         [UnityTest]
-        public IEnumerator ZeroChanceVisibleTargetStaysSelectableAndCanFire()
+        public IEnumerator ZeroChanceVisibleTargetStaysSelectableAndCanConfirm()
         {
             Unit enemy = PlaceVisibleEnemyAtDistance(3);
             player.Attributes.SetBaseValue(AttributeType.Aim, 0);
             enemy.Attributes.SetBaseValue(AttributeType.Defense, 100);
             yield return SettleFrame();
             var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            yield return RequestShoot(hud);
             Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
             yield return ClickUi(hud.TargetButtons[0]);
             Assert.That(hud.HitChanceText.text, Does.Contain("0%"));
-            Assert.That(hud.FireButton.interactable, Is.True);
-            yield return ClickUi(hud.FireButton);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.True);
+            yield return ClickUi(hud.ConfirmButton);
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10));
             Assert.That(hud.ShotResultText.text, Does.Contain("未命中"));
+            Assert.That(controller.SelectedShootTarget, Is.Null);
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+        }
+
+        private IEnumerator RequestShoot(BattleHUD hud)
+        {
+            Button button = hud.AbilityButtons.First(b => b.gameObject.activeSelf && b.GetComponentInChildren<Text>(true).text.Contains("射击"));
+            Assert.That(button.interactable, Is.True);
+            button.onClick.Invoke();
+            yield return SettleFrame();
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator CancellingAbilityKeepsTargetAndRepeatedConfirmationCommitsOnce()
+        {
+            Unit enemy = PlaceVisibleEnemyAtDistance(3);
+            player.Attributes.SetBaseValue(AttributeType.Aim, 100);
+            yield return SettleFrame();
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            yield return RequestShoot(hud);
+            yield return ClickUi(hud.TargetButtons[0]);
+            yield return ClickUi(hud.CancelButton);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.False);
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.True);
             Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+            Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10));
+            hud.ConfirmButton.onClick.Invoke(); // 已取消的旧确认不得提交。
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+            yield return ClickUi(hud.TargetButtons[0]);
+            hud.ConfirmButton.onClick.Invoke();
+            hud.ConfirmButton.onClick.Invoke();
+            yield return SettleFrame();
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1));
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            Assert.That(controller.SelectedShootTarget, Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator ReselectingSameUnitDuringConfirmationClosesSessionWithoutMoving()
+        {
+            yield return PlaceCameraAndPlayerInInterior();
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            battle.Grid.TryGetUnitCoordinates(player, out Vector2Int playerCell);
+            Vector2Int enemyCell = playerCell + Vector2Int.right * 3;
+            for (int x = playerCell.x + 1; x <= enemyCell.x; x++)
+                battle.Grid.TrySetBlockState(new Vector2Int(x, playerCell.y), Wargame.GridSystem.BlockState.Unblocked);
+            Assert.That(battle.Grid.TryMoveUnit(enemy, enemyCell), Is.True);
+            enemy.transform.position = battle.Grid.GridToWorld(enemyCell);
+            // 使用屏幕坐标定位，适应编辑器中不同尺寸的 Game 视图。
+            Vector2 selectionPoint = new Vector2(view.pixelWidth * .6f, view.pixelHeight * .8f);
+            Assert.That(battle.CameraRig.TryGetPlanePoint(selectionPoint, out Vector3 planePoint), Is.True);
+            GameObject.Find("BattleViewCenter").transform.position += player.transform.position - planePoint;
+            Physics.SyncTransforms();
+            yield return SettleFrame();
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            yield return RequestShoot(hud);
+            yield return ClickUi(hud.TargetButtons[0]);
+            battle.Grid.TryGetUnitCoordinates(player, out Vector2Int before);
+            Assert.That(Object.FindFirstObjectByType<BattleInputReader>().IsOverUI(UnitScreen), Is.False);
+            Set(mouse.position, UnitScreen); Press(mouse.leftButton);
+            yield return SettleFrame();
+            Assert.That(controller.SelectedUnit, Is.SameAs(player));
+            Assert.That(hud.IsInputBlocked, Is.False);
+            Assert.That(controller.HasActiveGesture, Is.False);
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            Set(mouse.position, view.WorldToScreenPoint(battle.Grid.GridToWorld(Target)));
+            Release(mouse.leftButton);
+            yield return SettleFrame();
+            battle.Grid.TryGetUnitCoordinates(player, out Vector2Int after);
+            Assert.That(after, Is.EqualTo(before));
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+            hud.ConfirmButton.onClick.Invoke();
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator RevokedAbilityAndDeadTargetCannotUseStaleConfirmation()
+        {
+            Unit enemy = PlaceVisibleEnemyAtDistance(3);
+            yield return SettleFrame();
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            yield return RequestShoot(hud);
+            yield return ClickUi(hud.TargetButtons[0]);
+            player.Abilities.Remove(player.Abilities.GetAbility<ShootAbility>());
+            hud.ConfirmButton.onClick.Invoke();
+            yield return SettleFrame();
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+            Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10));
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            player.Abilities.Grant(new ShootAbility(battle.Grid, new ShootSettings()));
+            yield return SettleFrame();
+            yield return RequestShoot(hud);
+            yield return ClickUi(hud.TargetButtons[0]);
+            enemy.Kill();
+            hud.ConfirmButton.onClick.Invoke();
+            yield return SettleFrame();
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.False);
+            Assert.That(controller.SelectedShootTarget, Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator NoneAndSelfAbilityButtonsActivateImmediately()
+        {
+            var noTarget = new ImmediateUiAbility("扫描", AbilityTargetType.None);
+            var self = new ImmediateUiAbility("警戒", AbilityTargetType.Self);
+            player.Abilities.Grant(noTarget);
+            player.Abilities.Grant(self);
+            yield return SettleFrame();
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            hud.AbilityButtons.First(b => b.GetComponentInChildren<Text>(true).text.Contains("扫描")).onClick.Invoke();
+            Assert.That(noTarget.ActivationCount, Is.EqualTo(1));
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1));
+            hud.AbilityButtons.First(b => b.GetComponentInChildren<Text>(true).text.Contains("警戒")).onClick.Invoke();
+            Assert.That(self.ActivationCount, Is.EqualTo(1));
+            Assert.That(self.LastTarget.Unit, Is.SameAs(player));
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.Zero);
+            Assert.That(hud.IsInputBlocked, Is.False);
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+        }
+
+        private sealed class ImmediateUiAbility : AbilityBase
+        {
+            public int ActivationCount;
+            public AbilityTarget LastTarget;
+            public ImmediateUiAbility(string name, AbilityTargetType type) : base(name, type) { DisplayName = name; }
+            protected override void OnActivate(AbilityTarget target)
+            { ActivationCount++; LastTarget = target; EndAbility(); }
         }
 
         private sealed class MissAtFiftyPercent : IShootRandomSource
@@ -687,10 +834,12 @@ namespace Wargame.Tests
             yield return SettleFrame();
 
             var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            yield return RequestShoot(hud);
             Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
             hud.TargetButtons[0].onClick.Invoke();
             yield return SettleFrame();
-            hud.FireButton.onClick.Invoke();
+            hud.ConfirmButton.onClick.Invoke();
             yield return SettleFrame();
 
             Assert.That(enemy.IsAlive, Is.False);
@@ -698,7 +847,7 @@ namespace Wargame.Tests
             Assert.That(battle.Turns.Units.Contains(enemy), Is.False);
             Assert.That(controller.SelectedShootTarget, Is.Null);
             Assert.That(hud.VisibleTargetCount, Is.Zero);
-            Assert.That(hud.FireButton.gameObject.activeInHierarchy, Is.False);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.False);
         }
 
         [UnityTest]

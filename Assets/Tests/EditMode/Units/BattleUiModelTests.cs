@@ -82,6 +82,50 @@ namespace Wargame.Tests
         }
 
         [Test]
+        public void PreparingTargetChecksConditionsWithoutRequiringTargetOrSpendingCosts()
+        {
+            Unit unit = CreateUnit("准备射击");
+            Unit enemy = CreateUnit("目标", Faction.Enemy);
+            var ability = new TestAbility("Targeted", AbilityTargetType.Unit).Cost(1).Cooldown(2).Charges(1);
+            unit.Abilities.Grant(ability);
+            Assert.That(unit.Abilities.CanPrepareTarget(ability, out var reason), Is.False);
+            Assert.That(reason, Is.EqualTo(AbilityFailReason.NotYourTurn));
+            unit.BeginTurn();
+            Assert.That(unit.Abilities.CanActivate(ability, AbilityTarget.None, out reason), Is.False);
+            Assert.That(reason, Is.EqualTo(AbilityFailReason.InvalidTarget));
+            Assert.That(unit.Abilities.CanPrepareTarget(ability, out reason), Is.True);
+            Assert.That(ability.ActivateCount, Is.Zero);
+            Assert.That(ability.RemainingCharges, Is.EqualTo(1));
+            Assert.That(unit.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+            unit.Attributes.SetBaseValue(AttributeType.ActionPoints, 0);
+            Assert.That(unit.Abilities.CanPrepareTarget(ability, out reason), Is.False);
+            Assert.That(reason, Is.EqualTo(AbilityFailReason.NotEnoughActionPoints));
+            unit.Attributes.SetBaseValue(AttributeType.ActionPoints, 2);
+            unit.Tags.AddTag(GameplayTag.Stunned);
+            Assert.That(unit.Abilities.CanPrepareTarget(ability, out reason), Is.False);
+            Assert.That(reason, Is.EqualTo(AbilityFailReason.BlockedByTag));
+            unit.Tags.RemoveTag(GameplayTag.Stunned);
+            Assert.That(unit.Abilities.TryActivate(ability, AbilityTarget.ForUnit(enemy), out _), Is.True);
+            Assert.That(unit.Abilities.CanPrepareTarget(ability, out reason), Is.False);
+            Assert.That(reason, Is.EqualTo(AbilityFailReason.OnCooldown));
+            unit.EndTurn(); unit.BeginTurn(); unit.EndTurn(); unit.BeginTurn();
+            Assert.That(unit.Abilities.CanPrepareTarget(ability, out reason), Is.False);
+            Assert.That(reason, Is.EqualTo(AbilityFailReason.NoCharges));
+            unit.Abilities.Remove(ability);
+            Assert.That(unit.Abilities.CanPrepareTarget(ability, out reason), Is.False);
+            Assert.That(reason, Is.EqualTo(AbilityFailReason.NotGranted));
+        }
+
+        [Test]
+        public void TargetPanelVisibilityIsExplicitInSnapshot()
+        {
+            var hidden = new BattleUiState(1, Faction.Player, true, true, "", null, null, null, false);
+            var visible = new BattleUiState(1, Faction.Player, true, true, "", null, null, null, false, true);
+            Assert.That(hidden.IsTargetPanelVisible, Is.False);
+            Assert.That(visible.IsTargetPanelVisible, Is.True);
+        }
+
+        [Test]
         public void UnspentActionPointQueryIgnoresDeadUnitsAndOtherFactions()
         {
             Unit playerWithAp = CreateUnit("有行动点", Faction.Player);

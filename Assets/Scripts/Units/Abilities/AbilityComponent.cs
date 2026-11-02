@@ -102,6 +102,15 @@ namespace Wargame.Units
         /// <summary>检查能力能否激活：先检查授予、回合、独占，再调用能力自身的 CanActivate。</summary>
         public bool CanActivate(AbilityBase ability, AbilityTarget target, out AbilityFailReason reason)
         {
+            return CheckAvailability(ability, out reason) && ability.CanActivate(target, out reason);
+        }
+
+        /// <summary>检查是否能进入目标选择，不激活能力；最终提交仍须 CanActivate。</summary>
+        public bool CanPrepareTarget(AbilityBase ability, out AbilityFailReason reason) =>
+            CheckAvailability(ability, out reason) && ability.CanPrepareTarget(out reason);
+
+        private bool CheckAvailability(AbilityBase ability, out AbilityFailReason reason)
+        {
             if (ability == null || !abilities.Contains(ability))
                 reason = AbilityFailReason.NotGranted;
             else if (!Owner.IsTurnActive && !ability.CanActivateOutOfTurn)
@@ -111,7 +120,10 @@ namespace Wargame.Units
             else if (ability.IsExclusive && ActiveExclusiveAbility != null)
                 reason = AbilityFailReason.AnotherAbilityActive;
             else
-                return ability.CanActivate(target, out reason);
+            {
+                reason = AbilityFailReason.None;
+                return true;
+            }
             return false;
         }
 

@@ -9,6 +9,7 @@ namespace Wargame.Battle
     /// <summary>战斗 UI 视图层；状态由 BattleUiController 提供，控件只负责渲染和发布用户意图。</summary>
     public sealed class BattleHUD : MonoBehaviour
     {
+        public enum ConfirmationMode { None, EndTurn, Ability }
         [SerializeField] private Canvas interactionCanvas;
         [SerializeField] private Canvas infoCanvas;
         [SerializeField] private Text roundText;
@@ -27,11 +28,11 @@ namespace Wargame.Battle
         [SerializeField] private RectTransform targetList;
         [SerializeField] private Button targetButtonTemplate;
         [SerializeField] private Button abilityButtonTemplate;
+        [SerializeField] private RectTransform abilityDic;
         [SerializeField] private Text targetEmptyText;
         [SerializeField] private Text selectedTargetText;
         [SerializeField] private Text hitChanceText;
         [SerializeField] private Text shotResultText;
-        [SerializeField] private Button fireButton;
         [SerializeField] private RectTransform endTurnDialog;
         [SerializeField] private Text endTurnWarningText;
         [SerializeField] private Button confirmEndTurnButton;
@@ -49,7 +50,9 @@ namespace Wargame.Battle
         private Vector2Int lastResolution;
 
         public event Action<Unit> TargetSelected;
-        public event Action FireRequested;
+        public event Action AbilityConfirmed;
+        public event Action AbilityCancelled;
+        public event Action<bool> ConfirmationChanged;
         public event Action<AbilityBase> AbilityRequested;
         public event Action EndTurnRequested;
         public event Action EndTurnConfirmed;
@@ -68,129 +71,103 @@ namespace Wargame.Battle
         public Button EndTurnButton => endTurnButton;
         public Button RotateLeftButton => rotateLeftButton;
         public Button RotateRightButton => rotateRightButton;
-        public Button FireButton => fireButton;
+        public RectTransform AbilityDic => abilityDic;
+        public RectTransform TargetPanel => targetPanel;
+        public Button ConfirmButton => confirmEndTurnButton;
+        public Button CancelButton => cancelEndTurnButton;
         public Text HitChanceText => hitChanceText;
         public Text ShotResultText => shotResultText;
         public IReadOnlyList<Button> TargetButtons => targetButtons;
         public IReadOnlyList<Button> AbilityButtons => abilityButtons;
         public int VisibleTargetCount { get; private set; }
-        public bool IsEndTurnConfirmationVisible => endTurnDialog != null && endTurnDialog.gameObject.activeSelf;
-        public bool IsInputBlocked => IsEndTurnConfirmationVisible;
+        public ConfirmationMode ActiveConfirmation { get; private set; }
+        public bool IsEndTurnConfirmationVisible => ActiveConfirmation == ConfirmationMode.EndTurn;
+        public bool IsAbilityConfirmationVisible => ActiveConfirmation == ConfirmationMode.Ability;
+        public bool IsInputBlocked => ActiveConfirmation != ConfirmationMode.None;
 
         public void Initialize(BattleSceneManager manager)
         {
             if (uiController != null) return;
-            if (!ValidateConfiguration(out string error)) throw new InvalidOperationException(error);
             scene = manager;
             endTurnDialog.gameObject.SetActive(false);
+            ActiveConfirmation = ConfirmationMode.None;
             if (endTurnButton != null)
             {
                 endTurnButton.onClick.RemoveListener(OnEndTurnClicked);
                 endTurnButton.onClick.AddListener(OnEndTurnClicked);
             }
-            confirmEndTurnButton.onClick.RemoveListener(ConfirmEndTurn);
-            confirmEndTurnButton.onClick.AddListener(ConfirmEndTurn);
-            cancelEndTurnButton.onClick.RemoveListener(CancelEndTurn);
-            cancelEndTurnButton.onClick.AddListener(CancelEndTurn);
+            confirmEndTurnButton.onClick.RemoveListener(ConfirmAction);
+            confirmEndTurnButton.onClick.AddListener(ConfirmAction);
+            cancelEndTurnButton.onClick.RemoveListener(CancelAction);
+            cancelEndTurnButton.onClick.AddListener(CancelAction);
             if (cancelArea != null) cancelArea.gameObject.SetActive(false);
             ApplySafeArea();
             targetButtonTemplate.gameObject.SetActive(false);
             targetPanel.gameObject.SetActive(false);
-            fireButton.gameObject.SetActive(false);
-            fireButton.onClick.RemoveListener(RequestFire);
-            fireButton.onClick.AddListener(RequestFire);
+            abilityButtonTemplate.gameObject.SetActive(false);
             uiController = new BattleUiController();
             uiController.Initialize(manager, this);
         }
 
-        public bool ValidateConfiguration(out string error)
-        {
-            Canvas canvas = interactionCanvas;
-            GraphicRaycaster[] raycasters = canvas == null ? Array.Empty<GraphicRaycaster>() :
-                canvas.GetComponents<GraphicRaycaster>();
-            error = canvas == null || canvas.gameObject != gameObject || raycasters.Length != 1 || !raycasters[0].enabled ||
-                endTurnButton == null || targetPanel == null || targetList == null ||
-                targetButtonTemplate == null || targetButtonTemplate.GetComponentInChildren<Text>(true) == null ||
-                abilityButtonTemplate == null || abilityButtonTemplate.GetComponentInChildren<Text>(true) == null ||
-                targetEmptyText == null || selectedTargetText == null || hitChanceText == null ||
-                shotResultText == null || fireButton == null || infoCanvas == null ||
-                roundText == null || factionText == null || selectedUnitText == null ||
-                actionPointsText == null || abilityStatusText == null || endTurnDialog == null ||
-                endTurnWarningText == null || confirmEndTurnButton == null || cancelEndTurnButton == null
-                ? "战斗 UI 必须在 Inspector 中配置交互/信息 Canvas、文本、按钮、模板和结束回合弹窗引用。" : null;
-            if (error == null)
-            {
-                if (infoCanvas == canvas || infoCanvas.transform.parent != canvas.transform.parent ||
-                    infoCanvas.GetComponent<GraphicRaycaster>() != null ||
-                    infoCanvas.GetComponent<CanvasScaler>() == null ||
-                    !IsUnderCanvas(roundText, infoCanvas) || !IsUnderCanvas(factionText, infoCanvas) ||
-                    !IsUnderCanvas(hintText, infoCanvas) || !IsUnderCanvas(selectedUnitText, infoCanvas) ||
-                    !IsUnderCanvas(actionPointsText, infoCanvas) || !IsUnderCanvas(abilityStatusText, infoCanvas) ||
-                    !IsUnderCanvas(selectedTargetText, infoCanvas) || !IsUnderCanvas(hitChanceText, infoCanvas) ||
-                    !IsUnderCanvas(shotResultText, infoCanvas))
-                    error = "战斗信息 Canvas 必须与交互 Canvas 同属 Canvas 根物体、带 CanvasScaler 且不能挂 GraphicRaycaster。";
-                else
-                {
-                    CanvasScaler infoScaler = infoCanvas.GetComponent<CanvasScaler>();
-                    CanvasScaler interactionScaler = canvas.GetComponent<CanvasScaler>();
-                    if (interactionScaler == null || infoScaler.uiScaleMode != interactionScaler.uiScaleMode ||
-                        infoScaler.referenceResolution != interactionScaler.referenceResolution ||
-                        !Mathf.Approximately(infoScaler.matchWidthOrHeight, interactionScaler.matchWidthOrHeight))
-                        error = "战斗只读信息 Canvas 必须与交互 Canvas 使用相同的缩放和参考分辨率。";
-                    else
-                    {
-                        foreach (Graphic graphic in infoCanvas.GetComponentsInChildren<Graphic>(true))
-                            if (graphic.raycastTarget)
-                            {
-                                error = "战斗只读信息 Canvas 的 Graphic 必须关闭 raycastTarget。";
-                                break;
-                            }
-                        if (error == null && (endTurnDialog.GetComponent<Image>() == null ||
-                            !endTurnDialog.transform.IsChildOf(canvas.transform) ||
-                            !endTurnWarningText.transform.IsChildOf(endTurnDialog) ||
-                            !confirmEndTurnButton.transform.IsChildOf(endTurnDialog) ||
-                            !cancelEndTurnButton.transform.IsChildOf(endTurnDialog)))
-                            error = "结束回合弹窗、提示文本和确认/取消按钮必须在交互 Canvas 中预先配置。";
-                    }
-                }
-            }
-            return error == null;
-        }
-
-        private static bool IsUnderCanvas(Graphic graphic, Canvas canvas) =>
-            graphic != null && canvas != null && graphic.transform.IsChildOf(canvas.transform);
-
         private void OnEndTurnClicked()
         {
-            if (endTurnButton == null || !endTurnButton.interactable || scene == null) return;
+            if (endTurnButton == null || !endTurnButton.interactable || scene == null || IsInputBlocked) return;
             if (scene.HasUnspentPlayerActionPoints)
             {
-                if (endTurnDialog != null && !endTurnDialog.gameObject.activeSelf)
-                {
-                    endTurnDialog.gameObject.SetActive(true);
-                    EndTurnConfirmationChanged?.Invoke(true);
-                }
+                ShowConfirmation(ConfirmationMode.EndTurn, BattleUiText.EndTurnWarning);
             }
             else EndTurnRequested?.Invoke();
         }
 
-        private void ConfirmEndTurn()
+        public void ShowAbilityConfirmation(string message)
         {
-            if (!IsEndTurnConfirmationVisible) return;
-            if (endTurnDialog != null) endTurnDialog.gameObject.SetActive(false);
-            EndTurnConfirmationChanged?.Invoke(false);
-            EndTurnConfirmed?.Invoke();
+            if (IsInputBlocked) return;
+            ShowConfirmation(ConfirmationMode.Ability, message);
         }
 
-        private void CancelEndTurn()
+        private void ShowConfirmation(ConfirmationMode mode, string message)
         {
-            if (!IsEndTurnConfirmationVisible) return;
-            if (endTurnDialog != null) endTurnDialog.gameObject.SetActive(false);
-            EndTurnConfirmationChanged?.Invoke(false);
-            EndTurnCancelled?.Invoke();
+            ActiveConfirmation = mode;
+            endTurnWarningText.text = message;
+            endTurnDialog.gameObject.SetActive(true);
+            endTurnDialog.SetAsLastSibling();
+            if (mode == ConfirmationMode.EndTurn) EndTurnConfirmationChanged?.Invoke(true);
+            ConfirmationChanged?.Invoke(true);
+            uiController?.Refresh();
         }
 
-        private void RequestFire() { if (fireButton != null && fireButton.interactable) FireRequested?.Invoke(); }
+        public void CloseAbilityConfirmation()
+        {
+            if (IsAbilityConfirmationVisible) CloseConfirmation();
+        }
+
+        private void CloseConfirmation()
+        {
+            bool wasEndTurn = IsEndTurnConfirmationVisible;
+            ActiveConfirmation = ConfirmationMode.None;
+            if (endTurnDialog != null) endTurnDialog.gameObject.SetActive(false);
+            if (wasEndTurn) EndTurnConfirmationChanged?.Invoke(false);
+            ConfirmationChanged?.Invoke(false);
+            uiController?.Refresh();
+        }
+
+        private void ConfirmAction()
+        {
+            ConfirmationMode mode = ActiveConfirmation;
+            if (mode == ConfirmationMode.None) return;
+            CloseConfirmation();
+            if (mode == ConfirmationMode.EndTurn) EndTurnConfirmed?.Invoke();
+            else AbilityConfirmed?.Invoke();
+        }
+
+        private void CancelAction()
+        {
+            ConfirmationMode mode = ActiveConfirmation;
+            if (mode == ConfirmationMode.None) return;
+            CloseConfirmation();
+            if (mode == ConfirmationMode.EndTurn) EndTurnCancelled?.Invoke();
+            else AbilityCancelled?.Invoke();
+        }
 
         public void ShowShotResult(ShootResult result)
         {
@@ -210,21 +187,22 @@ namespace Wargame.Battle
         public void RenderAttack(IReadOnlyList<ShootPreview> targets, ShootPreview? selectedTarget, bool showPanel, bool canFire)
         {
             RenderAttackView(targets, selectedTarget, showPanel, canFire);
-            if (uiController != null) uiController.SetAttack(targets, selectedTarget, canFire);
+            if (uiController != null) uiController.SetAttack(targets, selectedTarget, canFire, showPanel);
         }
 
         private void RenderAttackView(IReadOnlyList<ShootPreview> targets, ShootPreview? selectedTarget, bool showPanel, bool canFire)
         {
             if (targetPanel == null) return;
             targetPanel.gameObject.SetActive(showPanel);
-            VisibleTargetCount = targets != null ? targets.Count : 0;
+            VisibleTargetCount = showPanel && targets != null ? targets.Count : 0;
             EnsureTargetButtons(VisibleTargetCount);
             displayedTargets.Clear();
             if (targetEmptyText != null) { targetEmptyText.text = BattleUiText.NoTarget; targetEmptyText.gameObject.SetActive(VisibleTargetCount == 0); }
             for (int i = 0; i < targetButtons.Count; i++)
             {
-                bool visible = targets != null && i < targets.Count;
+                bool visible = showPanel && targets != null && i < targets.Count;
                 targetButtons[i].gameObject.SetActive(visible);
+                targetButtons[i].interactable = !IsInputBlocked;
                 if (!visible) continue;
                 ShootPreview preview = targets[i];
                 displayedTargets.Add(preview.Target);
@@ -237,11 +215,6 @@ namespace Wargame.Battle
             if (selectedTargetText != null) selectedTargetText.text = hasTarget
                 ? $"目标：{selectedTarget.Value.TargetName}  生命 {selectedTarget.Value.TargetHealth:0.#}" : BattleUiText.SelectTarget;
             if (hitChanceText != null) hitChanceText.text = hasTarget ? BattleUiText.HitChance(selectedTarget.Value.HitChance) : string.Empty;
-            if (fireButton != null)
-            {
-                fireButton.gameObject.SetActive(hasTarget);
-                fireButton.interactable = hasTarget && canFire;
-            }
         }
 
         public void RenderState(BattleUiState state, MovePlan plan, bool dragging, bool overCancel)
@@ -252,7 +225,7 @@ namespace Wargame.Battle
             if (hintText != null) hintText.text = state.Hint;
             if (cancelArea != null) cancelArea.gameObject.SetActive(dragging);
             if (cancelText != null) cancelText.text = overCancel ? "松开以取消" : "拖到这里取消";
-            if (endTurnButton != null) endTurnButton.interactable = state.CanEndTurn;
+            if (endTurnButton != null) endTurnButton.interactable = state.CanEndTurn && !IsInputBlocked;
             if (state.SelectedUnit == null)
             {
                 if (selectedUnitText != null) selectedUnitText.text = BattleUiText.NoSelectedUnit;
@@ -265,7 +238,7 @@ namespace Wargame.Battle
                 if (actionPointsText != null) actionPointsText.text = $"行动点：{state.SelectedUnit.ActionPoints:0.#}/{state.SelectedUnit.MaxActionPoints:0.#}";
                 RenderAbilities(state.SelectedUnit.Abilities);
             }
-            RenderAttackView(state.ShootTargets, state.SelectedTarget, state.SelectedUnit != null && state.CurrentFaction == Faction.Player, state.CanFire);
+            RenderAttackView(state.ShootTargets, state.SelectedTarget, state.IsTargetPanelVisible, state.CanFire);
         }
 
         private void RenderAbilities(IReadOnlyList<AbilityUiState> abilities)
@@ -281,7 +254,7 @@ namespace Wargame.Battle
                 AbilityUiState state = abilities[i];
                 displayedAbilities.Add(state.Ability);
                 abilityButtonLabels[i].text = $"{state.DisplayName}  {state.ActionPointCost} AP";
-                abilityButtons[i].interactable = state.CanActivate || state.Ability is ShootAbility || state.Ability is MoveAbility;
+                abilityButtons[i].interactable = state.CanActivate && !IsInputBlocked && scene.CanIssueOrders;
                 lines.Add(BattleUiText.AbilityLine(state));
             }
             if (abilityStatusText != null) abilityStatusText.text = string.Join("\n", lines);
@@ -292,17 +265,12 @@ namespace Wargame.Battle
             while (abilityButtons.Count < count)
             {
                 int index = abilityButtons.Count;
-                Button button = Instantiate(abilityButtonTemplate, interactionCanvas.transform);
+                Button button = Instantiate(abilityButtonTemplate, abilityDic);
                 button.name = "AbilityButton";
                 button.gameObject.SetActive(false);
-                RectTransform rect = button.GetComponent<RectTransform>();
-                rect.anchorMin = rect.anchorMax = new Vector2(1, .5f);
-                rect.pivot = new Vector2(1, .5f);
-                rect.sizeDelta = new Vector2(220, 34);
-                rect.anchoredPosition = new Vector2(-20, 38 - index * 38);
                 Text label = button.GetComponentInChildren<Text>(true);
                 if (label != null) label.raycastTarget = false;
-                button.onClick.AddListener(() => { if (index < displayedAbilities.Count && button.interactable) AbilityRequested?.Invoke(displayedAbilities[index]); });
+                button.onClick.AddListener(() => { if (!IsInputBlocked && index < displayedAbilities.Count && button.interactable) AbilityRequested?.Invoke(displayedAbilities[index]); });
                 abilityButtons.Add(button);
                 abilityButtonLabels.Add(label);
             }
@@ -315,7 +283,7 @@ namespace Wargame.Battle
                 int index = targetButtons.Count;
                 Button button = Instantiate(targetButtonTemplate, targetList);
                 button.name = "TargetButton";
-                button.onClick.AddListener(() => { if (index < displayedTargets.Count) TargetSelected?.Invoke(displayedTargets[index]); });
+                button.onClick.AddListener(() => { if (!IsInputBlocked && index < displayedTargets.Count && button.interactable) TargetSelected?.Invoke(displayedTargets[index]); });
                 targetButtons.Add(button);
                 targetButtonLabels.Add(button.GetComponentInChildren<Text>(true));
             }
@@ -336,10 +304,10 @@ namespace Wargame.Battle
         {
             if (scene != null)
             {
-                bool canRotate = scene.IsInitialized && !scene.HasActiveGesture && !scene.CameraRig.IsRotating;
+                bool canRotate = scene.IsInitialized && !scene.HasActiveGesture && !scene.CameraRig.IsRotating && !IsInputBlocked;
                 if (rotateLeftButton != null) rotateLeftButton.interactable = canRotate;
                 if (rotateRightButton != null) rotateRightButton.interactable = canRotate;
-                if (endTurnButton != null && !IsEndTurnConfirmationVisible) endTurnButton.interactable = scene.CanEndPlayerTurn;
+                if (endTurnButton != null) endTurnButton.interactable = scene.CanEndPlayerTurn && !IsInputBlocked;
             }
             if (lastSafeArea != Screen.safeArea || lastResolution != new Vector2Int(Screen.width, Screen.height)) ApplySafeArea();
         }
@@ -367,9 +335,9 @@ namespace Wargame.Battle
                 uiController = null;
             }
             if (endTurnButton != null) endTurnButton.onClick.RemoveListener(OnEndTurnClicked);
-            if (fireButton != null) fireButton.onClick.RemoveListener(RequestFire);
-            if (confirmEndTurnButton != null) confirmEndTurnButton.onClick.RemoveListener(ConfirmEndTurn);
-            if (cancelEndTurnButton != null) cancelEndTurnButton.onClick.RemoveListener(CancelEndTurn);
+            if (confirmEndTurnButton != null) confirmEndTurnButton.onClick.RemoveListener(ConfirmAction);
+            if (cancelEndTurnButton != null) cancelEndTurnButton.onClick.RemoveListener(CancelAction);
+            CloseConfirmation();
             for (int i = 0; i < abilityButtons.Count; i++)
                 if (abilityButtons[i] != null)
                     if (Application.isPlaying) Destroy(abilityButtons[i].gameObject); else DestroyImmediate(abilityButtons[i].gameObject);

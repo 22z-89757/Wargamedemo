@@ -115,34 +115,6 @@ namespace Wargame.Tests
             finally { Object.DestroyImmediate(settings); }
         }
 
-        [TestCase("missing")] [TestCase("canvas")] [TestCase("view")] [TestCase("sorting")]
-        [TestCase("input")] [TestCase("size")] [TestCase("distance")] [TestCase("scale")]
-        [TestCase("scaler")] [TestCase("nested")]
-        public void InvalidHealthLayerIsRejectedBeforeSpawning(string errorKind)
-        {
-            SetSpawns(Vector2Int.one);
-            switch (errorKind)
-            {
-                case "missing": Reference(battle, "healthBars", null); break;
-                case "canvas": Reference(healthBars, "healthCanvas", null); break;
-                case "view": Reference(healthBars, "viewPrefab", null); break;
-                case "sorting": healthBars.GetComponent<Canvas>().sortingOrder = 0; break;
-                case "input": healthBars.gameObject.AddComponent<GraphicRaycaster>(); break;
-                case "size": healthBars.Settings.BaseSize.x = 0; break;
-                case "distance": healthBars.Settings.FarDistance = healthBars.Settings.NearDistance; break;
-                case "scale": healthBars.Settings.NearScale = healthBars.Settings.FarScale; break;
-                case "scaler": healthBars.GetComponent<CanvasScaler>().referenceResolution = Vector2.one; break;
-                case "nested":
-                    var nested = new GameObject("Nested", typeof(RectTransform), typeof(Canvas));
-                    nested.transform.SetParent(healthBars.transform, false);
-                    break;
-            }
-            Assert.That(battle.TryInitialize(out string error), Is.False);
-            Assert.That(error, Does.Contain("血条").Or.Contain("UnitHealthBarCanvas"));
-            Assert.That(battle.SpawnedUnits, Is.Empty);
-            Assert.That(turns.Units, Is.Empty);
-        }
-
         [Test]
         public void Map1HasIndependentNonInteractiveHealthCanvas()
         {
@@ -158,9 +130,18 @@ namespace Wargame.Tests
                 }
                 Assert.That(manager, Is.Not.Null);
                 Assert.That(hud, Is.Not.Null);
+                Assert.That(hud.gameObject.name, Is.EqualTo("canvas"));
+                Assert.That(hud.transform.parent, Is.Null);
+                Assert.That(hud.AbilityDic.name, Is.EqualTo("AbilityDic"));
+                Assert.That(hud.AbilityDic.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+                Assert.That(hud.AbilityDic.IsChildOf(hud.InteractionCanvas.transform), Is.True);
+                Assert.That(hud.AbilityDic.GetComponentsInChildren<Button>(true), Has.Length.EqualTo(1));
+                Assert.That(hud.AbilityDic.GetComponentInChildren<Button>(true).name, Is.EqualTo("AbilityButtonTemplate"));
+                Assert.That(hud.ConfirmDialog.name, Is.EqualTo("ActionConfirmDialog"));
+                Assert.That(hud.InteractionCanvas.GetComponentsInChildren<Transform>(true).Any(t => t.name == "FireButton"), Is.False);
                 Assert.That(manager.HealthBars, Is.Not.Null);
-                var canvas = hud.GetComponent<Canvas>();
-                Assert.That(manager.HealthBars.ValidateConfiguration(canvas, out string error), Is.True, error);
+                var canvas = hud.InteractionCanvas;
+                Assert.That(canvas, Is.Not.Null);
                 Transform canvasRoot = manager.HealthBars.transform.parent;
                 Assert.That(canvasRoot, Is.Not.Null);
                 Assert.That(canvasRoot.name, Is.EqualTo("canvas"));

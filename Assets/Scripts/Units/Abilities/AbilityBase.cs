@@ -125,6 +125,17 @@ namespace Wargame.Units
         /// </summary>
         public virtual bool CanActivate(AbilityTarget target, out AbilityFailReason reason)
         {
+            if (!CheckActivationConditions(target, out reason)) return false;
+            if (!IsValidTarget(target)) reason = AbilityFailReason.InvalidTarget;
+            return reason == AbilityFailReason.None;
+        }
+
+        /// <summary>准备选择目标：只读检查公共条件，不要求已有目标，也不提交消耗。</summary>
+        public virtual bool CanPrepareTarget(out AbilityFailReason reason) =>
+            CheckActivationConditions(AbilityTarget.None, out reason);
+
+        private bool CheckActivationConditions(AbilityTarget target, out AbilityFailReason reason)
+        {
             if (Owner == null)
             {
                 reason = AbilityFailReason.NotGranted;
@@ -142,8 +153,6 @@ namespace Wargame.Units
                 reason = AbilityFailReason.NoCharges;
             else if (!CanPayCost(target))
                 reason = AbilityFailReason.NotEnoughActionPoints;
-            else if (!IsValidTarget(target))
-                reason = AbilityFailReason.InvalidTarget;
             else
                 reason = AbilityFailReason.None;
             return reason == AbilityFailReason.None;

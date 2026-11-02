@@ -15,7 +15,9 @@ namespace Wargame.Battle
             AbilityFailReason reason = AbilityFailReason.NotGranted;
             bool canActivate = false;
             if (owner != null)
-                canActivate = owner.Abilities.CanActivate(ability, target, out reason);
+                canActivate = ability is ShootAbility
+                    ? owner.Abilities.CanPrepareTarget(ability, out reason)
+                    : owner.Abilities.CanActivate(ability, target, out reason);
             int cost = ability.GetActionPointCost(target);
             return new AbilityUiState(ability, BattleUiText.AbilityName(ability), cost, canActivate,
                 canActivate ? AbilityFailReason.None : reason,
@@ -27,7 +29,7 @@ namespace Wargame.Battle
             var result = new List<AbilityUiState>();
             if (owner == null) return result;
             foreach (AbilityBase ability in owner.Abilities.Abilities)
-                result.Add(Read(owner, ability));
+                if (!(ability is MoveAbility)) result.Add(Read(owner, ability));
             return result;
         }
 
