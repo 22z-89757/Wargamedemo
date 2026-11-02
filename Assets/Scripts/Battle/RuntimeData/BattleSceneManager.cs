@@ -54,6 +54,30 @@ namespace Wargame.Battle
         public bool CanIssueOrders => IsInitialized && turns.State == BattleState.Running &&
             turns.CurrentFaction == Faction.Player && !HasActiveAction;
         public bool CanEndPlayerTurn => CanIssueOrders && !HasActiveGesture && (cameraRig == null || !cameraRig.IsRotating);
+        /// <summary>当前玩家阵营是否仍有任一存活单位保留行动点。</summary>
+        public bool HasUnspentPlayerActionPoints
+        {
+            get
+            {
+                if (turns == null || turns.State != BattleState.Running || turns.CurrentFaction != Faction.Player)
+                    return false;
+                return HasUnspentActionPoints(turns.GetUnits(Faction.Player), Faction.Player);
+            }
+        }
+
+        /// <summary>查询指定阵营存活单位是否仍保留行动点；只读且不改变单位状态。</summary>
+        public static bool HasUnspentActionPoints(IEnumerable<Unit> units, Faction faction)
+        {
+            if (units == null) return false;
+            foreach (Unit unit in units)
+            {
+                if (unit == null || unit.Faction != faction || !unit.IsAlive ||
+                    !unit.Attributes.TryGetValue(AttributeType.ActionPoints, out float ap))
+                    continue;
+                if (ap > 0f) return true;
+            }
+            return false;
+        }
 
         private void Start()
         {
@@ -197,6 +221,7 @@ namespace Wargame.Battle
         private void Cleanup()
         {
             cleaning = true;
+            if (hud != null) hud.Shutdown();
             if (healthBars != null) healthBars.Shutdown();
             if (playerController != null) playerController.Shutdown();
             if (cameraRig != null) cameraRig.Shutdown();

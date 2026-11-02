@@ -70,7 +70,7 @@ bool fired = unit.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(enemy), out
 if (fired) Debug.Log($"Distance={shoot.LastResult.Distance}, Chance={shoot.LastResult.HitChance}, Hit={shoot.LastResult.Hit}, Damage={shoot.LastResult.Damage}");
 ```
 
-`Map1` 的 `SafeArea/AttackTargets` 保存目标面板、滚动列表、隐藏的列表项模板、目标生命/命中率、结果文本和 `FIRE / 1 AP` 按钮；通过 HUD 的序列化引用装配，缺少引用时初始化报告错误。操作顺序为“点击己方单位 → 点击左侧敌人 → 查看命中率 → 点击开火”。切换己方单位会清除原目标；SightRange、位置、LOS、属性与死亡变化通过现有事件刷新目标和概率。AP 不足时开火禁用但保留可见列表；目标死亡或离开视野时清除选择，仍合法的目标跨过曲线阶梯则保留选择并更新概率。射击结果显示命中、擦伤或未命中，目标生命随预览刷新。界面标签沿用现有英文 HUD。
+`Map1` 的 `SafeArea/AttackTargets` 保存目标面板、滚动列表、隐藏的列表项模板、目标生命/命中率、结果文本和 `FIRE / 1 AP` 按钮；通过 HUD 的序列化引用装配，缺少引用时初始化报告错误。操作顺序为“点击己方单位 → 点击左侧敌人 → 查看命中率 → 点击开火”。切换己方单位会清除原目标；SightRange、位置、LOS、属性与死亡变化通过现有事件刷新目标和概率。AP 不足时开火禁用但保留可见列表；目标死亡或离开视野时清除选择，仍合法的目标跨过曲线阶梯则保留选择并更新概率。射击结果显示命中、擦伤或未命中，目标生命随预览刷新。界面标签由 BattleUiText 统一提供简体中文，底层 AbilityId、AP 等技术字段只作为数据格式保留。
 
 ```csharp
 // 以下代码在 GridManager 初始化后调用，grid 为组件引用。
@@ -159,7 +159,15 @@ PC 仅使用鼠标左键，Android 使用主触点：从玩家单位按下，拖
 
 逻辑占用和 AP 先提交，`UnitVisualController` 再沿路径插值。它仅处理平移、模型转向、起伏及选中圈，模型引用、每秒格数（默认 4）、转向时间和起伏幅度均可配置。表现结束前持有独占能力和 Moving 标记，期间不能再发移动或结束回合。已提交移动被禁用、取消时对齐终点，不返还 AP；单位死亡或销毁会释放占用和回合注册。
 
-点击 `END TURN` 结束玩家回合；敌方目前只占格、不行动，下帧直接返回玩家并补满 AP。AP 耗尽不会自动切回合。HUD 的状态、提示、取消区域、旋转和结束按钮使用 uGUI，按安全区域布局。
+点击“结束回合”结束玩家回合；敌方目前只占格、不行动，下帧直接返回玩家并补满 AP。AP 耗尽不会自动切回合。HUD 的状态、提示、取消区域、旋转和结束按钮使用 uGUI，按安全区域布局。
+
+### 战斗 UI MVC
+
+战斗 UI 的数据流为 `BattleSceneManager/AbilityComponent` → `BattleUiController` → `BattleUiState` 快照 → `BattleHUD` 视图。`BattleUiState`、`SelectedUnitUiState`、`AbilityUiState` 和 `TargetUiState` 只保存回合、行动方、选中单位、AP、能力可用性、目标预览和中文原因，不持有 `Text`、`Button` 或其他 Unity 控件；能力列表通过 `BattleUiAbilityAdapter` 读取 `AbilityComponent.Abilities` 的实时结果，不复制能力规则。
+
+`Map1` 使用名为 `canvas` 的根物体收纳三个 Canvas：`BattleInfoCanvas` 是只读信息层，`BattleInteractionCanvas` 是交互层，`UnitHealthBarCanvas` 是血条层。交互层保留目标列表、能力按钮、开火、旋转、结束回合和确认弹窗；信息层显示独立的“回合数”和“行动方”文本、提示、选中单位 AP 与能力状态。只读 Canvas 不挂 `GraphicRaycaster`，其文字关闭 `raycastTarget`。布局、静态文本、确认弹窗及按钮均保存在场景并由 `BattleHUD` 的 Inspector 引用配置；运行时只按战斗数据更新文本/显隐并生成动态目标和能力条目。两个战斗 Canvas 共用 `CanvasScaler` 的 1280×720、Match 0.5 安全区域配置。
+
+结束回合按钮先查询 `BattleSceneManager.HasUnspentPlayerActionPoints`，范围是当前玩家阵营的存活单位；任一单位 AP 大于零时显示中文确认弹窗。确认时重新调用原子 `TryEndPlayerTurn`，取消或过期确认只关闭弹窗并按最新快照刷新，弹窗期间玩家控制器会取消移动/相机手势。
 
 ### Cinemachine 战术相机
 
@@ -201,7 +209,7 @@ PlayMode 流程测试：`unity command "test run" --mode playmode --filter Warga
 
 `UnitHealthBarSettings` 配置 `BaseSize`（Canvas 逻辑尺寸，默认 96×10）、`WorldOffset`（世界竖直偏移，默认 2）、`NearDistance/FarDistance`（默认 10/30）和 `NearScale/FarScale`（默认 1.1/0.65）。距离缩放按 `lerp(NearScale, FarScale, clamp01((distance-NearDistance)/(FarDistance-NearDistance)))` 计算。尺寸必须为正，偏移非负，距离阈值和比例均有限并满足近距离小于远距离、近端比例大于远端比例且远端比例大于零。
 
-Map1 的根级 `UnitHealthBarCanvas` 独立于 `BattleUICanvas`，使用 Screen Space Overlay、sortingOrder -1；CanvasScaler 与 HUD 一致（Scale With Screen Size、1280×720、Match Width Or Height 0.5）。该节点的 `BattleUnitHealthBars.healthCanvas` 引用自身 Canvas，`viewPrefab` 引用上述预制体，GameManager 的 `BattleSceneManager.healthBars` 显式引用此组件。血条 Canvas 不挂 GraphicRaycaster，不创建额外 EventSystem；HUD 排序为 0，因此仍覆盖血条并正常接收输入。
+Map1 的 `UnitHealthBarCanvas` 位于 `canvas` 根物体下，使用 Screen Space Overlay、sortingOrder -2；只读信息层排序为 -1、交互 HUD 为 0。CanvasScaler 与 HUD 一致（Scale With Screen Size、1280×720、Match Width Or Height 0.5）。该节点的 `BattleUnitHealthBars.healthCanvas` 引用自身 Canvas，`viewPrefab` 引用上述预制体，GameManager 的 `BattleSceneManager.healthBars` 显式引用此组件。血条 Canvas 不挂 GraphicRaycaster，不创建额外 EventSystem。
 
 场景在生成单位前验证血条装配，初始化相机后调用 `healthBars.Initialize(this, cameraRig.OutputCamera)`。血条层按 `SpawnedUnits` 中非空且存活的单位维护唯一视图，包含双方和未选中单位；回合、AP 和能力可用性不影响资格。`scene.Changed` 协调单位集合，单位的 Health/MaxHealth 事件只标记待刷新，在呈现前读取最终快照。死亡或销毁立即解绑并隐藏对应视图；禁用血条层会释放全部绑定，重新启用从当前存活集合重建。重复 Initialize/Refresh 不重复建条。战斗清理和初始化异常先 Shutdown 血条层，再关闭相机、解除单位订阅并销毁单位，避免旧绑定残留。
 

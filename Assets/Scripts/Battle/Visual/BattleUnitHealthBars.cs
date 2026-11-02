@@ -40,12 +40,13 @@ namespace Wargame.Battle
         {
             error = null;
             if (!isActiveAndEnabled || healthCanvas == null || !healthCanvas.isActiveAndEnabled ||
-                healthCanvas.transform != transform || transform.parent != null ||
+                healthCanvas.transform != transform || transform.parent != null &&
+                (transform.parent.name != "canvas" || transform.parent.GetComponent<Canvas>() != null) ||
                 healthCanvas.renderMode != RenderMode.ScreenSpaceOverlay || hudCanvas == null ||
                 healthCanvas == hudCanvas || hudCanvas.transform.IsChildOf(transform) ||
                 healthCanvas.sortingLayerID != hudCanvas.sortingLayerID || healthCanvas.sortingOrder >= hudCanvas.sortingOrder ||
                 GetComponentsInChildren<Canvas>(true).Length != 1)
-                error = "需要独立根级 UnitHealthBarCanvas（Overlay），排序低于 BattleUICanvas。";
+                error = "需要独立的 UnitHealthBarCanvas（Overlay），排序低于 BattleInteractionCanvas。";
             else if (GetComponentsInChildren<GraphicRaycaster>(true).Length != 0)
                 error = "血条 Canvas 不能包含 GraphicRaycaster。";
             else if (viewPrefab == null)
@@ -60,7 +61,7 @@ namespace Wargame.Battle
                 scaler.uiScaleMode != CanvasScaler.ScaleMode.ScaleWithScreenSize ||
                 scaler.uiScaleMode != hudScaler.uiScaleMode || scaler.referenceResolution != hudScaler.referenceResolution ||
                 scaler.screenMatchMode != hudScaler.screenMatchMode || scaler.matchWidthOrHeight != hudScaler.matchWidthOrHeight)
-                error = "血条 CanvasScaler 需与 BattleUICanvas 使用相同的参考分辨率和缩放方式。";
+                error = "血条 CanvasScaler 需与 BattleInteractionCanvas 使用相同的参考分辨率和缩放方式。";
             return error == null;
         }
 

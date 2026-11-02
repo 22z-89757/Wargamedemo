@@ -271,7 +271,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Wargame.Runtime::Wargame.Units.Unit
   faction: 1
-  displayName: Enemy
+  displayName: 敌人
 --- !u!114 &4234307940168336845
 MonoBehaviour:
   m_ObjectHideFlags: 0

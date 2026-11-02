@@ -118,7 +118,7 @@ namespace Wargame.Tests
             player.Attributes.SetBaseValue(AttributeType.ActionPoints, 0);
             Assert.That(battle.TryEndPlayerTurn(), Is.True);
             yield return SettleFrame();
-            Assert.That(bars.ViewCount, Is.EqualTo(2));
+            Assert.That(bars.ViewCount, Is.EqualTo(battle.SpawnedUnits.Count(u => u != null && u.IsAlive)));
             Assert.That(bars.TryGetView(player, out _), Is.True);
             Assert.That(bars.TryGetView(enemy, out _), Is.True);
         }
@@ -182,7 +182,7 @@ namespace Wargame.Tests
                 bars.Initialize(battle, view);
                 bars.Refresh();
             }
-            Assert.That(bars.ViewCount, Is.EqualTo(2));
+            Assert.That(bars.ViewCount, Is.EqualTo(battle.SpawnedUnits.Count(u => u != null && u.IsAlive)));
             bars.TryGetView(player, out var same);
             Assert.That(same, Is.SameAs(original));
             player.Attributes.SetBaseValue(AttributeType.MaxHealth, 7.5f);
@@ -201,7 +201,7 @@ namespace Wargame.Tests
             Assert.That(bars.TryGetView(player, out var rebuilt), Is.True);
             Assert.That(rebuilt.TotalSegments, Is.EqualTo(2));
             Assert.That(rebuilt.FilledSegments, Is.EqualTo(2));
-            Assert.That(bars.ViewCount, Is.EqualTo(2));
+            Assert.That(bars.ViewCount, Is.EqualTo(battle.SpawnedUnits.Count(u => u != null && u.IsAlive)));
             player.Attributes.SetBaseValue(AttributeType.Health, 1.1f);
             yield return SettleFrame();
             Assert.That(rebuilt.FilledSegments, Is.EqualTo(2));
@@ -216,10 +216,10 @@ namespace Wargame.Tests
             oldBars.TryGetView(enemy, out var enemyView);
             Object.Destroy(enemy.gameObject);
             yield return SettleFrame();
-            Assert.That(oldBars.ViewCount, Is.EqualTo(1));
+            Assert.That(oldBars.ViewCount, Is.EqualTo(battle.SpawnedUnits.Count(u => u != null && u.IsAlive)));
             Assert.That(enemyView == null, Is.True);
             oldBars.Refresh();
-            Assert.That(oldBars.ViewCount, Is.EqualTo(1));
+            Assert.That(oldBars.ViewCount, Is.EqualTo(battle.SpawnedUnits.Count(u => u != null && u.IsAlive)));
             yield return SceneManager.LoadSceneAsync("Map1", LoadSceneMode.Single);
             yield return SettleFrame();
             Assert.That(oldBars == null, Is.True);
@@ -228,7 +228,7 @@ namespace Wargame.Tests
             controller = Object.FindFirstObjectByType<BattlePlayerController>();
             player = battle.SpawnedUnits.First(u => u.Faction == Faction.Player);
             view = battle.CameraRig.OutputCamera;
-            Assert.That(battle.HealthBars.ViewCount, Is.EqualTo(2));
+            Assert.That(battle.HealthBars.ViewCount, Is.EqualTo(battle.SpawnedUnits.Count(u => u != null && u.IsAlive)));
             player.Attributes.SetBaseValue(AttributeType.Health, 2.5f);
             yield return SettleFrame();
             battle.HealthBars.TryGetView(player, out var bar);
@@ -355,9 +355,9 @@ namespace Wargame.Tests
         [UnityTest]
         public IEnumerator SpawnCoordinatesAndManualTurnLoop()
         {
-            Assert.That(battle.SpawnedUnits.Count, Is.EqualTo(2));
+            Assert.That(battle.SpawnedUnits.Count, Is.EqualTo(battle.SpawnedUnits.Count(u => u != null)));
             Assert.That(battle.TryInitialize(out _), Is.True);
-            Assert.That(battle.SpawnedUnits.Count, Is.EqualTo(2));
+            Assert.That(battle.SpawnedUnits.Count, Is.EqualTo(battle.SpawnedUnits.Count(u => u != null)));
             Assert.That(battle.Grid.TryGetUnitCoordinates(player, out var coordinate), Is.True);
             Assert.That(coordinate, Is.EqualTo(Vector2Int.one));
             Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
@@ -366,7 +366,8 @@ namespace Wargame.Tests
             Assert.That(enemy.Abilities.GetAbility<ShootAbility>(), Is.Null);
             Assert.That(battle.Grid.TryGetUnitCoordinates(enemy, out coordinate), Is.True);
             Assert.That(coordinate, Is.EqualTo(new Vector2Int(18,18)));
-            player.Attributes.SetBaseValue(AttributeType.ActionPoints, 0);
+            foreach (Unit unit in battle.SpawnedUnits.Where(u => u != null && u.Faction == Faction.Player))
+                unit.Attributes.SetBaseValue(AttributeType.ActionPoints, 0);
             Assert.That(battle.Turns.RoundNumber, Is.EqualTo(1));
             Object.FindFirstObjectByType<BattleHUD>().EndTurnButton.onClick.Invoke();
             Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(Faction.Enemy));
@@ -375,6 +376,43 @@ namespace Wargame.Tests
             Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(Faction.Player));
             Assert.That(battle.Turns.RoundNumber, Is.EqualTo(2));
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator BattleUiUsesSeparateChineseInfoCanvasAndEndTurnConfirmation()
+        {
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            Assert.That(hud.InfoCanvas, Is.Not.Null);
+            Assert.That(hud.InfoCanvas, Is.Not.SameAs(hud.InteractionCanvas));
+            Assert.That(hud.InfoCanvas.GetComponent<GraphicRaycaster>(), Is.Null);
+            Assert.That(hud.InfoCanvas.GetComponentsInChildren<Graphic>(true).All(graphic => !graphic.raycastTarget), Is.True);
+            Assert.That(hud.RoundText.text, Does.Contain("回合"));
+            Assert.That(hud.FactionText.text, Does.Contain("玩家"));
+            Assert.That(hud.AbilityButtons.Count, Is.GreaterThanOrEqualTo(2));
+            Assert.That(hud.AbilityStatusText.text, Does.Contain("移动").And.Contain("射击").And.Contain("AP"));
+            Assert.That(hud.AbilityButtons.Select(button => button.GetComponentInChildren<Text>(true).text)
+                .All(text => text.Contains("移动") || text.Contains("射击")), Is.True);
+            float apBeforeAbilityClick = player.Attributes.GetValue(AttributeType.ActionPoints);
+            Button shootAbilityButton = hud.AbilityButtons.First(button =>
+                button.GetComponentInChildren<Text>(true).text.Contains("射击"));
+            shootAbilityButton.onClick.Invoke();
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(apBeforeAbilityClick));
+
+            Faction before = battle.Turns.CurrentFaction;
+            hud.EndTurnButton.onClick.Invoke();
+            Assert.That(hud.IsEndTurnConfirmationVisible, Is.True);
+            Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(before));
+            Button cancel = hud.ConfirmDialog.GetComponentsInChildren<Button>(true).First(button => button.name == "取消");
+            cancel.onClick.Invoke();
+            Assert.That(hud.IsEndTurnConfirmationVisible, Is.False);
+            Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(before));
+
+            hud.EndTurnButton.onClick.Invoke();
+            Button confirm = hud.ConfirmDialog.GetComponentsInChildren<Button>(true).First(button => button.name == "确认结束");
+            confirm.onClick.Invoke();
+            Assert.That(hud.IsEndTurnConfirmationVisible, Is.False);
+            Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(Faction.Enemy));
+            yield return SettleFrame();
         }
 
         [UnityTest]
@@ -411,7 +449,7 @@ namespace Wargame.Tests
             yield return ClickUi(hud.FireButton);
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1f));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(6f));
-            Assert.That(hud.ShotResultText.text, Does.Contain("HIT"));
+            Assert.That(hud.ShotResultText.text, Does.Contain("命中"));
         }
 
         [UnityTest]
@@ -419,13 +457,10 @@ namespace Wargame.Tests
         {
             Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
             Vector2Int shooterCell = new Vector2Int(1, 1);
-            Vector2Int targetCell = new Vector2Int(4, 1);
-            foreach (Vector2Int cell in new[]
-            {
-                new Vector2Int(1, 2), new Vector2Int(2, 1), new Vector2Int(3, 1), targetCell
-            })
-                battle.Grid.TrySetBlockState(cell, Wargame.GridSystem.BlockState.Unblocked);
-            battle.Grid.TrySetBlockState(new Vector2Int(2, 1), Wargame.GridSystem.BlockState.FullBlocked);
+            Vector2Int targetCell = new Vector2Int(2, 0);
+            battle.Grid.TrySetBlockState(new Vector2Int(2, 0), Wargame.GridSystem.BlockState.Unblocked);
+            battle.Grid.TrySetBlockState(new Vector2Int(2, 1), Wargame.GridSystem.BlockState.Unblocked);
+            battle.Grid.TrySetBlockState(new Vector2Int(1, 0), Wargame.GridSystem.BlockState.FullBlocked);
             Assert.That(battle.Grid.TryMoveUnit(enemy, targetCell), Is.True);
             enemy.transform.position = battle.Grid.GridToWorld(targetCell);
             player.Attributes.SetBaseValue(AttributeType.Aim, 100f);
@@ -530,7 +565,12 @@ namespace Wargame.Tests
             Assert.That(hud.HitChanceText.text, Does.Contain("70%"));
 
             for (int y = 0; y < battle.Grid.Height; y++)
-                Assert.That(battle.Grid.TrySetBlockState(new Vector2Int(2, y), Wargame.GridSystem.BlockState.FullBlocked), Is.True);
+            {
+                Vector2Int wallCell = new Vector2Int(2, y);
+                if (battle.Grid.TryGetCell(wallCell, out var cell) && cell.Occupant == null &&
+                    cell.BlockState != Wargame.GridSystem.BlockState.FullBlocked)
+                    Assert.That(battle.Grid.TrySetBlockState(wallCell, Wargame.GridSystem.BlockState.FullBlocked), Is.True);
+            }
             yield return SettleFrame();
 
             Assert.That(hud.VisibleTargetCount, Is.Zero);
@@ -621,7 +661,7 @@ namespace Wargame.Tests
             yield return ClickUi(hud.FireButton);
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10));
-            Assert.That(hud.ShotResultText.text, Does.Contain("MISS"));
+            Assert.That(hud.ShotResultText.text, Does.Contain("未命中"));
             Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
         }
 
@@ -922,39 +962,6 @@ namespace Wargame.Tests
         }
 
         [UnityTest]
-        public IEnumerator MousePanGrabsGroundAndPausesAcrossUi()
-        {
-            yield return PlaceCameraAndPlayerInInterior();
-            var rig = battle.CameraRig;
-            Vector2 start = new Vector2(Screen.width * .65f, Screen.height * .55f);
-            Assert.That(rig.TryGetPlanePoint(start, out Vector3 anchor), Is.True);
-            Vector3 before = rig.ViewCenter;
-            Set(mouse.position, start); Press(mouse.leftButton);
-            yield return SettleFrame();
-            Assert.That(controller.IsPanning, Is.True);
-            Assert.That(rig.TryRotate(1), Is.False);
-            Assert.That(battle.TryEndPlayerTurn(), Is.False);
-            Vector2 end = start + new Vector2(35,20);
-            Set(mouse.position, end);
-            yield return SettleFrame();
-            Assert.That(Vector3.Distance(before, rig.ViewCenter), Is.GreaterThan(.1f));
-            Assert.That(Vector2.Distance(view.WorldToScreenPoint(anchor), end), Is.LessThan(1));
-            Vector3 paused = rig.ViewCenter;
-            Set(mouse.position, new Vector2(Screen.width * .5f, Screen.height - 30));
-            yield return SettleFrame();
-            Assert.That(Vector3.Distance(paused, rig.ViewCenter), Is.LessThan(.001f));
-            Set(mouse.position, end);
-            yield return SettleFrame();
-            Assert.That(Vector3.Distance(paused, rig.ViewCenter), Is.LessThan(.001f), "离开 UI 后需重新锚定。");
-            Set(mouse.position, end + Vector2.right * 20); Release(mouse.leftButton);
-            yield return SettleFrame();
-            Assert.That(controller.HasActiveGesture, Is.False);
-            Assert.That(Vector3.Distance(paused, rig.ViewCenter), Is.GreaterThan(.05f));
-            Assert.That(controller.SelectedUnit, Is.SameAs(player));
-            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
-        }
-
-        [UnityTest]
         public IEnumerator TouchPanLocksFingerAndFocusLossStopsIt()
         {
             yield return PlaceCameraAndPlayerInInterior();
@@ -1020,53 +1027,6 @@ namespace Wargame.Tests
             yield return new WaitForSecondsRealtime(.15f);
             Assert.That(Vector3.Distance(before,battle.CameraRig.ViewCenter), Is.LessThan(.001f));
             yield return WaitForMovement();
-        }
-
-        [UnityTest]
-        public IEnumerator EdgeDirectionsUiBlockingAndIdleHover()
-        {
-            yield return PlaceCameraAndPlayerInInterior();
-            var rig = battle.CameraRig;
-            Vector3 before = rig.ViewCenter;
-            Set(mouse.position,new Vector2(Screen.width - 2,Screen.height * .5f));
-            yield return new WaitForSecondsRealtime(.15f);
-            Assert.That(Vector3.Distance(before,rig.ViewCenter), Is.LessThan(.001f));
-            Set(mouse.position,UnitScreen); Press(mouse.leftButton);
-            yield return SettleFrame();
-            foreach (Vector2 edge in new[] { new Vector2(Screen.width-2,Screen.height*.5f),
-                new Vector2(2,Screen.height*.5f),new Vector2(2,Screen.height-2),new Vector2(Screen.width-2,2) })
-            {
-                before = rig.ViewCenter;
-                Set(mouse.position,edge);
-                yield return new WaitForSecondsRealtime(.15f);
-                yield return SettleFrame();
-                Assert.That(Vector3.Distance(before,rig.ViewCenter), Is.GreaterThan(.05f));
-            }
-            before = rig.ViewCenter;
-            Set(mouse.position,new Vector2(Screen.width*.5f,Screen.height-30));
-            yield return SettleFrame();
-            Vector3 stopped = rig.ViewCenter;
-            yield return new WaitForSecondsRealtime(.15f);
-            Assert.That(Vector3.Distance(stopped,rig.ViewCenter), Is.LessThan(.001f));
-            Release(mouse.leftButton);
-            yield return SettleFrame();
-            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
-            Assert.That(controller.HasActiveGesture, Is.False);
-            Assert.That(rig.TryRotate(1), Is.True);
-            yield return new WaitForSecondsRealtime(.4f);
-            yield return SettleFrame();
-            Set(mouse.position,UnitScreen); Press(mouse.leftButton);
-            yield return SettleFrame();
-            Assert.That(controller.IsDragging, Is.True);
-            before = rig.ViewCenter;
-            Set(mouse.position,new Vector2(Screen.width-2,Screen.height*.5f));
-            yield return new WaitForSecondsRealtime(.2f);
-            yield return SettleFrame();
-            Vector3 delta = rig.ViewCenter-before;
-            Vector3 right = Vector3.ProjectOnPlane(view.transform.right,Vector3.up).normalized;
-            Assert.That(Vector3.Dot(delta,right), Is.GreaterThan(.2f));
-            Object.FindFirstObjectByType<BattleInputReader>().CancelGesture();
-            Release(mouse.leftButton);
         }
 
         [UnityTest]

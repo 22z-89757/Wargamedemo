@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -160,9 +161,18 @@ namespace Wargame.Tests
                 Assert.That(manager.HealthBars, Is.Not.Null);
                 var canvas = hud.GetComponent<Canvas>();
                 Assert.That(manager.HealthBars.ValidateConfiguration(canvas, out string error), Is.True, error);
-                Assert.That(manager.HealthBars.transform.parent, Is.Null);
+                Transform canvasRoot = manager.HealthBars.transform.parent;
+                Assert.That(canvasRoot, Is.Not.Null);
+                Assert.That(canvasRoot.name, Is.EqualTo("canvas"));
+                Assert.That(canvasRoot.GetComponent<Canvas>(), Is.Null);
+                Assert.That(hud.InfoCanvas.transform.parent, Is.SameAs(canvasRoot));
+                Assert.That(canvas.transform.parent, Is.SameAs(canvasRoot));
                 Assert.That(manager.HealthBars.HealthCanvas, Is.Not.SameAs(canvas));
                 Assert.That(manager.HealthBars.GetComponentsInChildren<GraphicRaycaster>(true), Is.Empty);
+                Assert.That(hud.InfoCanvas, Is.Not.Null);
+                Assert.That(hud.InfoCanvas, Is.Not.SameAs(canvas));
+                Assert.That(hud.InfoCanvas.GetComponent<GraphicRaycaster>(), Is.Null);
+                Assert.That(hud.InfoCanvas.GetComponentsInChildren<Graphic>(true).All(graphic => !graphic.raycastTarget), Is.True);
             }
             finally { EditorSceneManager.ClosePreviewScene(scene); }
         }

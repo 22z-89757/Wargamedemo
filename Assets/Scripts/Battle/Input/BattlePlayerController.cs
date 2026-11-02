@@ -64,6 +64,8 @@ namespace Wargame.Battle
             cameraRig.ViewChanged += OnViewChanged;
             hud.TargetSelected += OnTargetSelected;
             hud.FireRequested += OnFireRequested;
+            hud.AbilityRequested += OnAbilityRequested;
+            hud.EndTurnConfirmationChanged += OnEndTurnConfirmationChanged;
         }
 
         private void Select(Unit unit)
@@ -90,7 +92,7 @@ namespace Wargame.Battle
         private void OnPressed(Vector2 position)
         {
             if (scene == null || !scene.IsInitialized || HasActiveGesture || cameraRig.IsRotating ||
-                !cameraRig.isActiveAndEnabled || input.IsOverUI(position) || !battleCamera.pixelRect.Contains(position)) return;
+                !cameraRig.isActiveAndEnabled || hud.IsInputBlocked || input.IsOverUI(position) || !battleCamera.pixelRect.Contains(position)) return;
             gesture = Gesture.CameraPan;
             if (scene.CanIssueOrders && Physics.Raycast(battleCamera.ScreenPointToRay(position), out RaycastHit hit, battleCamera.farClipPlane))
             {
@@ -143,6 +145,11 @@ namespace Wargame.Battle
         private void Update()
         {
             if (scene == null || !scene.IsInitialized) return;
+            if (hud != null && hud.IsInputBlocked)
+            {
+                if (HasActiveGesture) CancelGesture();
+                return;
+            }
             if (IsDragging && selected == null) { CancelGesture(); Select(null); }
             if (selected != null && (!selected.IsAlive || !selected.isActiveAndEnabled))
             { if (IsDragging) CancelGesture(); Select(null); }
@@ -273,6 +280,42 @@ namespace Wargame.Battle
             MarkDirty();
         }
 
+        private void OnAbilityRequested(AbilityBase ability)
+        {
+            if (selected == null || ability == null || !scene.CanIssueOrders || HasActiveGesture || cameraRig.IsRotating)
+                return;
+
+            // 移动和射击仍由各自的目标交互完成；按钮只选择操作，不提前扣 AP。
+            if (ability is MoveAbility || ability is ShootAbility)
+            {
+                MarkDirty();
+                return;
+            }
+
+            if (ability.TargetType == AbilityTargetType.Self)
+            {
+                selected.Abilities.TryActivate(ability, AbilityTarget.Self(selected), out _);
+                MarkDirty();
+                return;
+            }
+
+            if (ability.TargetType != AbilityTargetType.None)
+            {
+                // Unit/Cell 能力必须经过各自的目标入口；没有目标时不提交伪目标。
+                MarkDirty();
+                return;
+            }
+
+            selected.Abilities.TryActivate(ability, AbilityTarget.None, out _);
+            MarkDirty();
+        }
+
+        private void OnEndTurnConfirmationChanged(bool visible)
+        {
+            if (visible && HasActiveGesture) CancelGesture();
+            if (cameraRig != null) cameraRig.SetEdgeScrollPointer(null);
+        }
+
         public void Shutdown()
         {
             if (bound)
@@ -285,6 +328,8 @@ namespace Wargame.Battle
                 {
                     hud.TargetSelected -= OnTargetSelected;
                     hud.FireRequested -= OnFireRequested;
+                    hud.AbilityRequested -= OnAbilityRequested;
+                    hud.EndTurnConfirmationChanged -= OnEndTurnConfirmationChanged;
                 }
                 if (cameraRig != null) cameraRig.ViewChanged -= OnViewChanged;
                 if (scene != null)
