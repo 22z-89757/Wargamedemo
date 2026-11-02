@@ -22,6 +22,7 @@ namespace Wargame.Battle
         private Tween rotation;
         private bool rotationFinishing;
         private float yaw, rotationGoal;
+        private int viewDirectionIndex;
         private bool panActive, panAnchored, endPanAfterUpdate;
         private Vector2 panPointer;
         private Vector3 panAnchor;
@@ -33,7 +34,21 @@ namespace Wargame.Battle
         public bool IsRotating => rotationFinishing || (rotation != null && rotation.IsActive());
         public Vector3 ViewCenter { get; private set; }
         public Camera OutputCamera => brain != null ? brain.OutputCamera : null;
+        public CinemachineBrain Brain => brain;
+        public CinemachineCamera TacticalCamera => virtualCamera;
+        public int ViewDirectionIndex => viewDirectionIndex;
         public event Action ViewChanged;
+        public event Action RotationCompleted;
+
+        public bool IsCameraSettled(CinemachineCamera camera) => brain != null && camera != null &&
+            !brain.IsBlending && brain.ActiveVirtualCamera == camera;
+
+        public void FocusTacticalAt(Vector3 worldPosition)
+        {
+            if (!IsInitialized || centerAxis == null) return;
+            CancelInteraction();
+            centerAxis.position = ClampCenter(worldPosition);
+        }
 
         public bool ValidateConfiguration(out string error)
         {
@@ -139,7 +154,15 @@ namespace Wargame.Battle
             rotation = DOTween.To(() => yaw, value =>
                 { yaw = value; centerAxis.rotation = Quaternion.Euler(0, yaw, 0); }, rotationGoal, rotationDuration)
                 .SetEase(Ease.InOutSine).SetUpdate(true).SetLink(gameObject)
-                .OnComplete(() => { yaw = Mathf.Repeat(rotationGoal, 360); centerAxis.rotation = Quaternion.Euler(0, yaw, 0); rotation = null; rotationFinishing = true; });
+            .OnComplete(() =>
+            {
+                yaw = Mathf.Repeat(rotationGoal, 360);
+                centerAxis.rotation = Quaternion.Euler(0, yaw, 0);
+                viewDirectionIndex = (viewDirectionIndex + direction + 4) % 4;
+                rotation = null;
+                rotationFinishing = true;
+                RotationCompleted?.Invoke();
+            });
             ViewChanged?.Invoke();
             return true;
         }

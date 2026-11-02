@@ -449,10 +449,75 @@ namespace Wargame.Tests
             yield return SettleFrame();
 
             yield return ClickUi(hud.TargetButtons[0]);
+            CinemachineBrain brain = battle.CameraRig.Brain;
+            brain.DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.EaseInOut, 2f);
             yield return ClickUi(hud.ConfirmButton);
+            Assert.That(hud.CancelShootButton.interactable, Is.False);
+            Assert.That(hud.CancelArea.gameObject.activeSelf, Is.False);
+            Assert.That(battle.CameraDirector.IsShotCameraReady, Is.False);
+            Assert.That(player.GetComponent<UnitShootVisualController>().IsWaitingToStart, Is.True);
+            yield return WaitForActiveAction();
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1f));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(6f));
             Assert.That(hud.ShotResultText.text, Does.Contain("命中"));
+            float popupDeadline = Time.realtimeSinceStartup + 4f;
+            while (Object.FindFirstObjectByType<BattleShotResultPopup>() != null &&
+                   Time.realtimeSinceStartup < popupDeadline)
+                yield return SettleFrame();
+            Assert.That(Object.FindFirstObjectByType<BattleShotResultPopup>(), Is.Null);
+            float cameraDeadline = Time.realtimeSinceStartup + 5f;
+            while (!battle.CameraRig.IsCameraSettled(battle.CameraRig.TacticalCamera) &&
+                   Time.realtimeSinceStartup < cameraDeadline)
+                yield return SettleFrame();
+            Assert.That(battle.CameraRig.IsCameraSettled(battle.CameraRig.TacticalCamera), Is.True);
+            Assert.That(battle.CameraDirector.FocusedTarget, Is.Null);
+            Vector2 tacticalCenter = new Vector2(battle.CameraRig.ViewCenter.x, battle.CameraRig.ViewCenter.z);
+            Vector2 shooterCenter = new Vector2(player.transform.position.x, player.transform.position.z);
+            Assert.That(Vector2.Distance(tacticalCenter, shooterCenter), Is.LessThan(.02f));
+        }
+
+        [UnityTest]
+        public IEnumerator CancellingPendingShotRestoresTacticalViewWithoutSpendingAp()
+        {
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            var targetCell = new Vector2Int(4, 1);
+            for (int x = 2; x <= targetCell.x; x++)
+                battle.Grid.TrySetBlockState(new Vector2Int(x, 1), Wargame.GridSystem.BlockState.Unblocked);
+            Assert.That(battle.Grid.TryMoveUnit(enemy, targetCell), Is.True);
+            enemy.transform.position = battle.Grid.GridToWorld(targetCell);
+            player.Attributes.SetBaseValue(AttributeType.Aim, 100f);
+            Physics.SyncTransforms();
+            yield return SettleFrame();
+
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            yield return RequestShoot(hud);
+            Assert.That(hud.CancelShootButton, Is.Not.Null);
+            Assert.That(hud.CancelShootButton.transform, Is.SameAs(hud.CancelArea));
+            Assert.That(hud.CancelArea.gameObject.activeSelf, Is.True);
+            Assert.That(hud.CancelArea.GetComponentInChildren<Text>(true).text, Is.EqualTo("取消射击"));
+            float apBefore = player.Attributes.GetValue(AttributeType.ActionPoints);
+
+            yield return ClickUi(hud.TargetButtons[0]);
+            Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.True);
+            Assert.That(hud.CancelShootButton.interactable, Is.True);
+            CinemachineCamera focusCamera = enemy.GetComponent<UnitBattleCameraSet>().GetFocusCamera(0);
+            Assert.That(focusCamera.Priority.Value, Is.EqualTo(20));
+
+            yield return ClickUi(hud.CancelShootButton);
+
+            Assert.That(controller.SelectedShootTarget, Is.Null);
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.False);
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+            Assert.That(hud.CancelArea.gameObject.activeSelf, Is.False);
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(apBefore));
+            Assert.That(battle.CameraDirector.FocusedTarget, Is.Null);
+            Assert.That(focusCamera.Priority.Value, Is.Zero);
+            Assert.That(battle.CameraRig.TacticalCamera.Priority.Value, Is.EqualTo(10));
+
+            yield return RequestShoot(hud);
+            Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.True);
+            Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
         }
 
         [UnityTest]
@@ -482,7 +547,7 @@ namespace Wargame.Tests
             Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
             Assert.That(hud.IsAbilityConfirmationVisible, Is.True);
             yield return ClickUi(hud.ConfirmButton);
-            yield return SettleFrame();
+            yield return WaitForActiveAction();
 
             battle.Grid.TryGetUnitCoordinates(player, out Vector2Int shooterAfter);
             battle.Grid.TryGetUnitCoordinates(enemy, out Vector2Int targetAfter);
@@ -677,6 +742,7 @@ namespace Wargame.Tests
             Assert.That(hud.HitChanceText.text, Does.Contain("0%"));
             Assert.That(hud.IsAbilityConfirmationVisible, Is.True);
             yield return ClickUi(hud.ConfirmButton);
+            yield return WaitForActiveAction();
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10));
             Assert.That(hud.ShotResultText.text, Does.Contain("未命中"));
@@ -713,7 +779,7 @@ namespace Wargame.Tests
             yield return ClickUi(hud.TargetButtons[0]);
             hud.ConfirmButton.onClick.Invoke();
             hud.ConfirmButton.onClick.Invoke();
-            yield return SettleFrame();
+            yield return WaitForActiveAction();
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1));
             Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
             Assert.That(controller.SelectedShootTarget, Is.Null);
@@ -840,7 +906,7 @@ namespace Wargame.Tests
             hud.TargetButtons[0].onClick.Invoke();
             yield return SettleFrame();
             hud.ConfirmButton.onClick.Invoke();
-            yield return SettleFrame();
+            yield return WaitForActiveAction();
 
             Assert.That(enemy.IsAlive, Is.False);
             Assert.That(battle.Grid.TryGetUnitCoordinates(enemy, out _), Is.False);
@@ -848,6 +914,13 @@ namespace Wargame.Tests
             Assert.That(controller.SelectedShootTarget, Is.Null);
             Assert.That(hud.VisibleTargetCount, Is.Zero);
             Assert.That(hud.IsAbilityConfirmationVisible, Is.False);
+        }
+
+        private IEnumerator WaitForActiveAction()
+        {
+            float deadline = Time.realtimeSinceStartup + 6;
+            while (battle.HasActiveAction && Time.realtimeSinceStartup < deadline) yield return SettleFrame();
+            Assert.That(battle.HasActiveAction, Is.False, "视觉动作必须完成并释放能力锁。");
         }
 
         [UnityTest]
@@ -971,7 +1044,7 @@ namespace Wargame.Tests
             var move = player.Abilities.GetAbility<MoveAbility>();
             Assert.That(player.Abilities.TryActivate(move, AbilityTarget.ForCell(target), out _), Is.True);
             yield return SettleFrame();
-            player.GetComponent<UnitVisualController>().enabled = false;
+            player.GetComponent<UnitMovementVisual>().enabled = false;
             Assert.That(move.IsActive, Is.False);
             Assert.That(player.Tags.HasTag(GameplayTag.Moving), Is.False);
             Assert.That(player.transform.position, Is.EqualTo(battle.Grid.GridToWorld(target)));
@@ -999,7 +1072,7 @@ namespace Wargame.Tests
         {
             var rig = battle.CameraRig;
             var brain = view.GetComponent<CinemachineBrain>();
-            var virtualCamera = Object.FindFirstObjectByType<CinemachineCamera>();
+            var virtualCamera = rig.TacticalCamera;
             var follow = virtualCamera.GetComponent<CinemachineFollow>();
             Transform pitch = virtualCamera.Follow;
             Transform center = pitch.parent;
@@ -1049,7 +1122,7 @@ namespace Wargame.Tests
         {
             var rig = battle.CameraRig;
             var brain = view.GetComponent<CinemachineBrain>();
-            var virtualCamera = Object.FindFirstObjectByType<CinemachineCamera>();
+            var virtualCamera = rig.TacticalCamera;
             rig.Shutdown();
             brain.UpdateMethod = CinemachineBrain.UpdateMethods.SmartUpdate;
             Assert.That(rig.ValidateConfiguration(out string error), Is.False);

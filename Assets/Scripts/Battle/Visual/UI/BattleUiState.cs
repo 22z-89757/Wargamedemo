@@ -10,7 +10,8 @@ namespace Wargame.Battle
     {
         public BattleUiState(int roundNumber, Faction currentFaction, bool canEndTurn,
             bool hasUnspentPlayerActionPoints, string hint, SelectedUnitUiState selectedUnit,
-            IReadOnlyList<ShootPreview> shootTargets, ShootPreview? selectedTarget, bool canFire, bool isTargetPanelVisible = false)
+            IReadOnlyList<ShootPreview> shootTargets, ShootPreview? selectedTarget, bool canFire,
+            bool isTargetPanelVisible = false, bool canCancelShoot = false)
         {
             RoundNumber = roundNumber;
             CurrentFaction = currentFaction;
@@ -27,6 +28,7 @@ namespace Wargame.Battle
             SelectedTarget = selectedTarget;
             CanFire = canFire;
             IsTargetPanelVisible = isTargetPanelVisible;
+            CanCancelShoot = canCancelShoot;
         }
 
         public int RoundNumber { get; }
@@ -40,6 +42,7 @@ namespace Wargame.Battle
         public ShootPreview? SelectedTarget { get; }
         public bool CanFire { get; }
         public bool IsTargetPanelVisible { get; }
+        public bool CanCancelShoot { get; }
     }
 
     /// <summary>目标列表的只读界面数据，不负责选择或执行射击。</summary>

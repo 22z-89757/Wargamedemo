@@ -10,17 +10,20 @@ namespace Wargame.Units
         public float TargetHealth { get; }
         public int Distance { get; }
         public float HitChance { get; }
+        public Vector2Int FiringOrigin { get; }
         public bool IsAvailable { get; }
         public bool CanFire { get; }
         public AbilityFailReason FailureReason { get; }
 
-        internal ShootPreview(Unit target, int distance, float hitChance, bool isAvailable, bool canFire, AbilityFailReason failureReason)
+        internal ShootPreview(Unit target, int distance, float hitChance, Vector2Int firingOrigin,
+            bool isAvailable, bool canFire, AbilityFailReason failureReason)
         {
             Target = target;
             TargetName = target != null ? target.DisplayName : string.Empty;
             TargetHealth = target != null && target.Attributes.TryGetValue(AttributeType.Health, out float health) ? health : 0f;
             Distance = distance;
             HitChance = hitChance;
+            FiringOrigin = firingOrigin;
             IsAvailable = isAvailable;
             CanFire = canFire;
             FailureReason = failureReason;
@@ -31,20 +34,27 @@ namespace Wargame.Units
     public readonly struct ShootResult
     {
         public Unit Target { get; }
+        public string TargetName { get; }
+        public Vector3 TargetPosition { get; }
         public bool Hit { get; }
         public bool Grazing { get; }
         public float Damage { get; }
         public int Distance { get; }
         public float HitChance { get; }
+        public Vector2Int FiringOrigin { get; }
 
-        internal ShootResult(Unit target, bool hit, bool grazing, float damage, int distance, float hitChance)
+        internal ShootResult(Unit target, string targetName, Vector3 targetPosition, bool hit, bool grazing,
+            float damage, int distance, float hitChance, Vector2Int firingOrigin)
         {
             Target = target;
+            TargetName = targetName ?? string.Empty;
+            TargetPosition = targetPosition;
             Hit = hit;
             Grazing = grazing;
             Damage = damage;
             Distance = distance;
             HitChance = hitChance;
+            FiringOrigin = firingOrigin;
         }
     }
 

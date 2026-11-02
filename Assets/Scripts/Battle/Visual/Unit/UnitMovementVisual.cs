@@ -8,7 +8,7 @@ namespace Wargame.Units
 {
     /// <summary>只负责 Transform 和模型表现；费用、路径与占用由 MoveAbility 管理。</summary>
     [DisallowMultipleComponent, RequireComponent(typeof(Unit))]
-    public sealed class UnitVisualController : MonoBehaviour
+    public sealed class UnitMovementVisual : MonoBehaviour
     {
         [SerializeField] private Transform modelRoot;
         [SerializeField, Min(0.1f)] private float cellsPerSecond = 4f;
@@ -20,7 +20,14 @@ namespace Wargame.Units
         private LineRenderer selectionRing;
         private Vector3 modelRestPosition, destination;
         private Action<bool> completion;
+        private INavigationPathProvider pathProvider;
         public bool IsMoving => completion != null;
+
+        internal INavigationPathProvider PathProvider
+        {
+            get => pathProvider ??= new NavigationPathProvider(new UnityNavigationQuery());
+            set => pathProvider = value ?? throw new ArgumentNullException(nameof(value));
+        }
 
         public void Configure(Transform model, Material marker)
         {
@@ -57,28 +64,38 @@ namespace Wargame.Units
                     .SetEase(Ease.InOutSine).SetLink(gameObject);
         }
 
-        public void PlayMovement(GridManager grid, IReadOnlyList<Vector2Int> path, Action<bool> onCompleted)
+        public void PlayMovement(GridManager grid, Vector2Int start, Vector2Int target, Action<bool> onCompleted)
         {
             StopMovement(true);
-            if (path == null || path.Count < 2) throw new ArgumentException("移动路径必须包含起终点。", nameof(path));
-            destination = grid.GridToWorld(path[path.Count - 1]);
+            if (grid == null) throw new ArgumentNullException(nameof(grid));
+            destination = grid.GridToWorld(target);
             completion = onCompleted ?? throw new ArgumentNullException(nameof(onCompleted));
-            transform.position = grid.GridToWorld(path[0]);
+            Vector3 startWorld = grid.GridToWorld(start);
+            transform.position = startWorld;
+            if (modelRoot != null) modelRestPosition = modelRoot.localPosition;
+            if (!PathProvider.TryCalculate(startWorld, destination, Mathf.Max(0.1f, grid.CellSize),
+                    out IReadOnlyList<Vector3> corners, out string error))
+            {
+                Debug.LogError($"{name} 移动视觉导航失败：{error}", this);
+                Finish(false);
+                return;
+            }
             if (modelRoot != null)
             {
-                modelRestPosition = modelRoot.localPosition;
                 bob = modelRoot.DOLocalMoveY(modelRestPosition.y + bobHeight * grid.CellSize, 0.14f)
                     .SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo).SetLink(gameObject);
             }
             movement = DOTween.Sequence().SetLink(gameObject);
-            for (int i = 1; i < path.Count; i++)
+            for (int i = 1; i < corners.Count; i++)
             {
-                Vector3 from = grid.GridToWorld(path[i - 1]);
-                Vector3 to = grid.GridToWorld(path[i]);
+                Vector3 from = corners[i - 1];
+                Vector3 to = corners[i];
                 float seconds = Vector3.Distance(from, to) / (grid.CellSize * Mathf.Max(0.1f, cellsPerSecond));
                 movement.Append(transform.DOMove(to, seconds).SetEase(Ease.Linear));
-                if (modelRoot != null)
-                    movement.Join(modelRoot.DORotateQuaternion(Quaternion.LookRotation(to - from), Mathf.Min(seconds, turnDuration))
+                Vector3 direction = to - from;
+                direction.y = 0f;
+                if (modelRoot != null && direction.sqrMagnitude > 0.000001f)
+                    movement.Join(modelRoot.DORotateQuaternion(Quaternion.LookRotation(direction), Mathf.Min(seconds, turnDuration))
                         .SetEase(Ease.OutSine));
             }
             movement.OnComplete(() => Finish(false));

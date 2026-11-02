@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Wargame.GridSystem;
-using Wargame.Units;
 
 namespace Wargame.Battle
 {
@@ -120,25 +119,30 @@ namespace Wargame.Battle
             for (int i = count; i < tiles.Count; i++) tiles[i].gameObject.SetActive(false);
         }
 
-        public void ShowPath(MovePlan plan)
+        public void ShowPath(Vector3 start, Vector3 destination, int actionPointCost)
         {
-            pathLine.positionCount = plan == null ? 0 : plan.Path.Count;
-            targetLine.positionCount = plan == null ? 0 : 4;
-            if (plan == null) return;
-            Color color = plan.ActionPointCost == 1 ? new Color(.2f,.85f,1) : new Color(1,.85f,.15f);
+            pathLine.positionCount = 2;
+            targetLine.positionCount = 4;
+            Color color = actionPointCost == 1 ? new Color(.2f,.85f,1) : new Color(1,.85f,.15f);
             pathLine.startColor = pathLine.endColor = targetLine.startColor = targetLine.endColor = color;
-            for (int i = 0; i < plan.Path.Count; i++)
-                pathLine.SetPosition(i, grid.GridToWorld(plan.Path[i]) + Vector3.up * .085f);
-            Vector3 center = grid.GridToWorld(plan.Destination) + Vector3.up * .08f;
+            pathLine.SetPosition(0, start + Vector3.up * .085f);
+            pathLine.SetPosition(1, destination + Vector3.up * .085f);
+            Vector3 center = destination + Vector3.up * .08f;
             float half = grid.CellSize * .45f;
             targetLine.SetPositions(new[] { center + new Vector3(-half,0,-half), center + new Vector3(-half,0,half),
                 center + new Vector3(half,0,half), center + new Vector3(half,0,-half) });
         }
 
+        public void ClearPath()
+        {
+            if (pathLine != null) pathLine.positionCount = 0;
+            if (targetLine != null) targetLine.positionCount = 0;
+        }
+
         public void Clear()
         {
             ShowRange(null, 0);
-            if (pathLine != null) ShowPath(null);
+            ClearPath();
         }
 
         private void OnDestroy()

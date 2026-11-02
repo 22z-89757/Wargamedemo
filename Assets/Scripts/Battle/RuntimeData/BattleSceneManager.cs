@@ -32,6 +32,7 @@ namespace Wargame.Battle
         [SerializeField] private List<UnitSpawnEntry> playerSpawns = new List<UnitSpawnEntry>();
         [SerializeField] private List<UnitSpawnEntry> enemySpawns = new List<UnitSpawnEntry>();
         private readonly List<Unit> spawned = new List<Unit>();
+        private BattleCameraDirector cameraDirector;
         private bool initializing, cleaning;
         private int skipEnemyAfterFrame = -1;
         public event Action Changed;
@@ -39,6 +40,7 @@ namespace Wargame.Battle
         public GridManager Grid => grid;
         public BattleTurnManager Turns => turns;
         public BattleCameraRig CameraRig => cameraRig;
+        public BattleCameraDirector CameraDirector => cameraDirector;
         public BattleUnitHealthBars HealthBars => healthBars;
         public bool HasActiveGesture => playerController != null && playerController.HasActiveGesture;
         public IReadOnlyList<Unit> SpawnedUnits => spawned;
@@ -100,7 +102,8 @@ namespace Wargame.Battle
             var occupied = new HashSet<Vector2Int>();
             if (playerSpawns == null || playerSpawns.Count == 0)
             { error = "至少配置一个玩家出生点。"; return false; }
-            if (!Validate(playerSpawns, occupied, out error) || !Validate(enemySpawns, occupied, out error) ||
+            if (!Validate(playerSpawns, Faction.Player, occupied, out error) ||
+                !Validate(enemySpawns, Faction.Enemy, occupied, out error) ||
                 !playerController.ValidateConfiguration(out error)) return false;
             if (cameraRig == null) { error = "需要 BattleCameraRig。"; return false; }
             if (!cameraRig.ValidateConfiguration(out error)) return false;
@@ -110,6 +113,7 @@ namespace Wargame.Battle
                 Spawn(playerSpawns, Faction.Player);
                 Spawn(enemySpawns, Faction.Enemy);
                 cameraRig.Initialize(grid, grid.GridToWorld(playerSpawns[0].Coordinates), playerController);
+                cameraDirector = new BattleCameraDirector(cameraRig, spawned);
                 healthBars.Initialize(this, cameraRig.OutputCamera);
                 preview.Initialize(grid);
                 hud.Initialize(this);
@@ -131,16 +135,33 @@ namespace Wargame.Battle
             finally { initializing = false; }
         }
 
-        private bool Validate(List<UnitSpawnEntry> entries, HashSet<Vector2Int> occupied, out string error)
+        private bool Validate(List<UnitSpawnEntry> entries, Faction faction, HashSet<Vector2Int> occupied, out string error)
         {
             error = null;
             if (entries == null) { error = "出生列表不能为 null。"; return false; }
             foreach (var entry in entries)
             {
+                UnitShootVisualController shootVisual = entry?.Prefab != null
+                    ? entry.Prefab.GetComponent<UnitShootVisualController>() : null;
+                UnitBattleCameraSet cameraSet = entry?.Prefab != null
+                    ? entry.Prefab.GetComponent<UnitBattleCameraSet>() : null;
+                string visualError = null;
                 if (entry == null || entry.Prefab == null || !entry.Prefab.gameObject.activeSelf ||
-                    entry.Prefab.GetComponent<UnitVisualController>() == null ||
-                    !entry.Prefab.GetComponent<UnitVisualController>().enabled || entry.Prefab.GetComponentInChildren<Collider>() == null)
-                { error = "每项需要激活的 Unit Prefab、UnitVisualController 和拾取 Collider。"; return false; }
+                    entry.Prefab.GetComponent<UnitMovementVisual>() == null ||
+                    !entry.Prefab.GetComponent<UnitMovementVisual>().enabled ||
+                    shootVisual == null || !shootVisual.enabled || !shootVisual.ValidateConfiguration(out visualError) ||
+                    entry.Prefab.GetComponentInChildren<Collider>() == null)
+                {
+                    error = "每项需要激活的 Unit Prefab、UnitMovementVisual、有效 UnitShootVisualController 和拾取 Collider。" +
+                        (string.IsNullOrEmpty(visualError) ? string.Empty : " " + visualError);
+                    return false;
+                }
+                if (cameraSet == null || !cameraSet.enabled || !cameraSet.ValidateConfiguration(faction, out error))
+                {
+                    error = $"{faction} Unit Prefab 的战斗相机装配无效。" +
+                        (string.IsNullOrEmpty(error) ? string.Empty : " " + error);
+                    return false;
+                }
                 if (float.IsNaN(entry.Yaw) || float.IsInfinity(entry.Yaw) ||
                     !grid.TryGetCell(entry.Coordinates, out GridCell cell) || cell.BlockState != BlockState.Unblocked ||
                     cell.Occupant != null || !occupied.Add(entry.Coordinates))
@@ -161,8 +182,9 @@ namespace Wargame.Battle
                 turns.RegisterUnit(unit);
                 if (faction == Faction.Player)
                 {
-                    unit.Abilities.Grant(new MoveAbility(grid, unit.GetComponent<UnitVisualController>()));
-                    unit.Abilities.Grant(new ShootAbility(grid, gameSettings.ShootSettings));
+                    unit.Abilities.Grant(new MoveAbility(grid, unit.GetComponent<UnitMovementVisual>()));
+                    unit.Abilities.Grant(new ShootAbility(grid, gameSettings.ShootSettings,
+                        unit.GetComponent<UnitShootVisualController>()));
                 }
                 unit.Died += ReleaseUnit;
                 unit.Destroyed += ReleaseUnit;
@@ -204,6 +226,7 @@ namespace Wargame.Battle
         private void ReleaseUnit(Unit unit)
         {
             if (cleaning) return;
+            cameraDirector?.UnitUnavailable(unit);
             unit.Abilities.CancelAll();
             unit.EndTurn();
             grid.TryRemoveUnit(unit);
@@ -220,6 +243,8 @@ namespace Wargame.Battle
         private void Cleanup()
         {
             cleaning = true;
+            cameraDirector?.Dispose();
+            cameraDirector = null;
             if (hud != null) hud.Shutdown();
             if (healthBars != null) healthBars.Shutdown();
             if (playerController != null) playerController.Shutdown();

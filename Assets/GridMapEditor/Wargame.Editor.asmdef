@@ -1,6 +1,6 @@
 {
     "name": "Wargame.Editor",
     "rootNamespace": "Wargame.Editor",
-    "references": ["Wargame.Runtime"],
+    "references": ["Wargame.Runtime", "Unity.AI.Navigation"],
     "includePlatforms": ["Editor"]
 }

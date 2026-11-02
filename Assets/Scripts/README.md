@@ -63,6 +63,8 @@ bool visible = GridLineOfSight.HasLineOfSight(lineOfSightMap,
 
 射击消耗 1 AP；命中后按 `clamp(Dodge, 0, 100)` 判定擦伤，普通伤害为 4、擦伤为 2，最终伤害为 `max(0, 基础伤害 - Armor)` 并从 Health 扣除。Dodge 不从 UI 命中率再次扣减。Health 归零仍由 `Unit.Died` 触发占格移除、回合注销和列表刷新。`ShootResult.Distance` 与 `HitChance` 记录成功提交时的距离、最终概率，不随后续移动或属性变化重算。
 
+射击确认成功后 `BattleCameraDirector` 先切换到玩家射击相机；UnitShootVisualController 等待 Cinemachine Brain 确认该相机已完全接管画面后，才开始探身、转向、发射子弹和结算。该相机 Follow 当前 Unit 根节点，因此会跟随探头和归位表现，不引用初始位置快照。子弹到达并结算后，目标上方显示命中、擦伤、未命中及伤害文本，按非缩放时间完整展示 2 秒；期间保持射击镜头，随后清除敌人聚焦并平滑返回以射击者为中心的战术镜头。射击结果保存目标名称与结算时世界坐标，目标因致死伤害移除时仍可完成提示；场景关闭或攻击者失效会清理镜头和提示。
+
 ```csharp
 ShootAbility shoot = unit.Abilities.GetAbility<ShootAbility>();
 ShootPreview preview = shoot.GetPreview(enemy); // 只读快照，包含距离、最终命中率和目标剩余生命。
@@ -157,7 +159,7 @@ PC 仅使用鼠标左键，Android 使用主触点：从玩家单位按下，拖
 
 玩家的 `MoveAbility` 由场景管理器自动授予；可通过 `TryGetMovePlan(cell, out plan, out reason)` 查询只读路径、代价和 AP 费用，再通过 `unit.Abilities.TryActivate("Move", AbilityTarget.ForCell(cell), out reason)` 执行。目标相关费用通过 `GetActionPointCost` 查询，`TryCommit` 允许自定义能力拒绝提交，固定费用能力继续使用原有 Commit 钩子。
 
-逻辑占用和 AP 先提交，`UnitVisualController` 再沿路径插值。它仅处理平移、模型转向、起伏及选中圈，模型引用、每秒格数（默认 4）、转向时间和起伏幅度均可配置。表现结束前持有独占能力和 Moving 标记，期间不能再发移动或结束回合。已提交移动被禁用、取消时对齐终点，不返还 AP；单位死亡或销毁会释放占用和回合注册。
+拖动时的路径预览只显示从单位当前视觉位置到目标格中心的一条直线，表示两点间的欧式距离；它不表示穿越障碍的实际路线。可达目标、移动费用和提交仍由棋盘格路径规则决定。逻辑占用和 AP 先提交，`UnitMovementVisual` 再沿导航路径插值。它仅处理平移、模型转向、起伏及选中圈，模型引用、每秒格数（默认 4）、转向时间和起伏幅度均可配置。表现结束前持有独占能力和 Moving 标记，期间不能再发移动或结束回合。已提交移动被禁用、取消时对齐终点，不返还 AP；单位死亡或销毁会释放占用和回合注册。
 
 点击“结束回合”结束玩家回合；敌方目前只占格、不行动，下帧直接返回玩家并补满 AP。AP 耗尽不会自动切回合。HUD 的状态、提示、取消区域、旋转和结束按钮使用 uGUI，按安全区域布局。
 
@@ -181,7 +183,7 @@ Map1 使用 Cinemachine 3.1.7：MainCamera 保留渲染、URP 与 AudioListener�
 
 静态配置直接在 Inspector 编辑：
 
-- MainCamera / CinemachineBrain：Update Method 为 ManualUpdate，Ignore Time Scale 开启，Default Blend 为 Cut，Lens Mode Override 开启。
+- MainCamera / CinemachineBrain：Update Method 为 ManualUpdate，Ignore Time Scale 开启，Default Blend 为 Ease In Out、时长 0.5 秒，Lens Mode Override 开启。
 - BattleVirtualCamera / CinemachineCamera：Lens 为 Perspective，FOV 默认 45°，裁剪面按地图设置；Tracking Target 引用 BattleCameraPitch。
 - BattleViewCenter / Transform：Y 旋转控制初始朝向（默认 45°），X/Z 旋转为零，缩放为 1。
 - BattleCameraPitch / Transform：局部位置归零，X 旋转控制固定俯角（默认 55°），Y/Z 旋转为零。
@@ -197,7 +199,7 @@ Map1 使用 Cinemachine 3.1.7：MainCamera 保留渲染、URP 与 AudioListener�
 
 `< 90` / `90 >` 按钮绕当前相机中心射线与棋盘平面的交点旋转 −90° / +90°，耗时 0.3 秒，固定高度、俯角和 FOV；平移仅限制该中心在棋盘内，画面边缘允许显示棋盘外。中心竖直轴只通过 Scene Gizmos 显示。棋盘手势期间禁用旋转，旋转期间禁用新手势与结束回合。尚不包含缩放、自由俯仰、惯性或角色自动跟随。
 
-输入仅记录手势与释放请求。CameraRig 在 LateUpdate 先平移/滚屏并 ManualUpdate Cinemachine，玩家控制器随后用本帧实际相机刷新拾取和提交；目标格不变时复用路径，相机变化不会重新构建移动范围。外部调用可以读取 `ViewCenter`、`IsRotating`、监听 `ViewChanged`，并通过 `TryRotate(-1/1)` 请求旋转。
+输入仅记录手势与释放请求。CameraRig 在 LateUpdate 先平移/滚屏并 ManualUpdate Cinemachine，玩家控制器随后用本帧实际相机刷新拾取和提交；目标格不变时复用路径，相机变化不会重新构建移动范围。`BattleCameraDirector` 只调度虚拟相机优先级：目标列表选择敌人时按当前棋盘朝向启用对应镜头，旋转完成后重新匹配方向；确认射击后切到玩家后肩镜头，并等待该镜头完全混合后才启动射击视觉；结果跳字结束后把战术中心移动到射击者并恢复战术相机。每个 Enemy Prefab 的 `UnitBattleCameraSet` 配置四台 Follow/RotationComposer 聚焦相机，每个获得 Shoot 能力的 Player Prefab 配置一台跟随 Unit 视觉根节点的射击相机。外部调用可以读取 `ViewCenter`、`IsRotating`，监听 `ViewChanged`，并通过 `TryRotate(-1/1)` 请求旋转。
 
 `InputSystem_Actions` 中新增 Battle/Point 与 Battle/Press，不启用模板 Player 动作来控制战斗。`BattleInputReader` 封装设备与手势，`BattlePlayerController` 负责选择、平面拾取和能力请求；UI 使用 InputSystemUIInputModule，仅接入 Point / Click。替换模型时保留 Prefab 根节点和逻辑组件，将模型子节点重新赋给 UnitVisualController。
 

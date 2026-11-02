@@ -1255,6 +1255,7 @@ GameObject:
   - component: {fileID: 148773719}
   - component: {fileID: 148773721}
   - component: {fileID: 148773720}
+  - component: {fileID: 148773722}
   m_Layer: 0
   m_Name: CancelMove
   m_TagString: Untagged
@@ -1320,6 +1321,50 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 148773718}
   m_CullTransparentMesh: 1
+--- !u!114 &148773722
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 148773718}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
+  m_Navigation:
+    m_Mode: 3
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 0}
+    m_SelectOnDown: {fileID: 0}
+    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnRight: {fileID: 0}
+  m_Transition: 1
+  m_Colors:
+    m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
+    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
+    m_SelectedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
+    m_ColorMultiplier: 1
+    m_FadeDuration: 0.1
+  m_SpriteState:
+    m_HighlightedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 0}
+    m_SelectedSprite: {fileID: 0}
+    m_DisabledSprite: {fileID: 0}
+  m_AnimationTriggers:
+    m_NormalTrigger: Normal
+    m_HighlightedTrigger: Highlighted
+    m_PressedTrigger: Pressed
+    m_SelectedTrigger: Selected
+    m_DisabledTrigger: Disabled
+  m_Interactable: 1
+  m_TargetGraphic: {fileID: 148773720}
+  m_OnClick:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1001 &161827840
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2259,8 +2304,8 @@ MonoBehaviour:
     Enabled: 1
     DefaultMode: 2
   DefaultBlend:
-    Style: 0
-    Time: 0
+    Style: 1
+    Time: 0.5
     CustomCurve:
       serializedVersion: 2
       m_Curve: []
@@ -6297,6 +6342,7 @@ GameObject:
   - component: {fileID: 1090134393}
   - component: {fileID: 1090134392}
   - component: {fileID: 1090134391}
+  - component: {fileID: 1090134395}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -28788,6 +28834,9 @@ MonoBehaviour:
   - Prefab: {fileID: 7861076438484296175, guid: acab3db5274d5f84fb5935c97f7d4c9d, type: 3}
     Coordinates: {x: 18, y: 18}
     Yaw: 0
+  - Prefab: {fileID: 7861076438484296175, guid: acab3db5274d5f84fb5935c97f7d4c9d, type: 3}
+    Coordinates: {x: 20, y: 9}
+    Yaw: 0
 --- !u!114 &1090134392
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -28832,6 +28881,38 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Wargame.Runtime::Wargame.Battle.BattleInputReader
   actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+--- !u!114 &1090134395
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1090134387}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshSurface
+  m_SerializedVersion: 0
+  m_AgentTypeID: 0
+  m_CollectObjects: 0
+  m_Size: {x: 10, y: 10, z: 10}
+  m_Center: {x: 0, y: 2, z: 0}
+  m_LayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_UseGeometry: 1
+  m_DefaultArea: 0
+  m_GenerateLinks: 0
+  m_IgnoreNavMeshAgent: 1
+  m_IgnoreNavMeshObstacle: 1
+  m_OverrideTileSize: 0
+  m_TileSize: 256
+  m_OverrideVoxelSize: 0
+  m_VoxelSize: 0.16666667
+  m_MinRegionArea: 2
+  m_NavMeshData: {fileID: 23800000, guid: 481ade2b2944ec847aa95045e6ba687f, type: 2}
+  m_BuildHeightMesh: 0
 --- !u!1001 &1101586882
 PrefabInstance:
   m_ObjectHideFlags: 0

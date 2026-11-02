@@ -23,6 +23,7 @@ namespace Wargame.Battle
         [SerializeField] private Button rotateRightButton;
         [SerializeField] private RectTransform cancelArea;
         [SerializeField] private Text cancelText;
+        private Button cancelShootButton;
         [SerializeField] private RectTransform safeArea;
         [SerializeField] private RectTransform targetPanel;
         [SerializeField] private RectTransform targetList;
@@ -50,6 +51,7 @@ namespace Wargame.Battle
         private Vector2Int lastResolution;
 
         public event Action<Unit> TargetSelected;
+        public event Action ShootCancelled;
         public event Action AbilityConfirmed;
         public event Action AbilityCancelled;
         public event Action<bool> ConfirmationChanged;
@@ -68,6 +70,7 @@ namespace Wargame.Battle
         public Text AbilityStatusText => abilityStatusText;
         public RectTransform ConfirmDialog => endTurnDialog;
         public RectTransform CancelArea => cancelArea;
+        public Button CancelShootButton => cancelShootButton;
         public Button EndTurnButton => endTurnButton;
         public Button RotateLeftButton => rotateLeftButton;
         public Button RotateRightButton => rotateRightButton;
@@ -100,6 +103,15 @@ namespace Wargame.Battle
             confirmEndTurnButton.onClick.AddListener(ConfirmAction);
             cancelEndTurnButton.onClick.RemoveListener(CancelAction);
             cancelEndTurnButton.onClick.AddListener(CancelAction);
+            cancelShootButton = cancelArea != null ? cancelArea.GetComponent<Button>() : null;
+            if (cancelShootButton != null)
+            {
+                cancelShootButton.onClick.RemoveListener(CancelShootAction);
+                cancelShootButton.onClick.AddListener(CancelShootAction);
+                if (cancelShootButton.targetGraphic == null)
+                    cancelShootButton.targetGraphic = cancelArea.GetComponent<Graphic>();
+                cancelShootButton.interactable = false;
+            }
             if (cancelArea != null) cancelArea.gameObject.SetActive(false);
             ApplySafeArea();
             targetButtonTemplate.gameObject.SetActive(false);
@@ -169,6 +181,11 @@ namespace Wargame.Battle
             else AbilityCancelled?.Invoke();
         }
 
+        private void CancelShootAction()
+        {
+            if (cancelShootButton != null && cancelShootButton.interactable) ShootCancelled?.Invoke();
+        }
+
         public void ShowShotResult(ShootResult result)
         {
             if (shotResultText != null) shotResultText.text = BattleUiText.ShotOutcome(result);
@@ -177,11 +194,11 @@ namespace Wargame.Battle
         public bool IsCancelArea(Vector2 screenPoint) => cancelArea != null && cancelArea.gameObject.activeInHierarchy &&
             RectTransformUtility.RectangleContainsScreenPoint(cancelArea, screenPoint);
 
-        public void Render(Unit unit, MovePlan plan, bool dragging, bool overCancel = false)
+        public void Render(Unit unit, MovePlan plan, bool dragging, bool overCancel = false, bool canCancelShoot = false)
         {
             if (scene == null || uiController == null) return;
             uiController.SetSelected(unit);
-            uiController.SetMovement(plan, dragging, overCancel, BuildHint(unit, plan, dragging, overCancel));
+            uiController.SetMovement(plan, dragging, overCancel, BuildHint(unit, plan, dragging, overCancel), canCancelShoot);
         }
 
         public void RenderAttack(IReadOnlyList<ShootPreview> targets, ShootPreview? selectedTarget, bool showPanel, bool canFire)
@@ -223,8 +240,10 @@ namespace Wargame.Battle
             if (roundText != null) roundText.text = $"第 {state.RoundNumber} 回合";
             if (factionText != null) factionText.text = BattleUiText.Faction(state.CurrentFaction);
             if (hintText != null) hintText.text = state.Hint;
-            if (cancelArea != null) cancelArea.gameObject.SetActive(dragging);
-            if (cancelText != null) cancelText.text = overCancel ? "松开以取消" : "拖到这里取消";
+            if (cancelArea != null) cancelArea.gameObject.SetActive(dragging || state.CanCancelShoot);
+            if (cancelText != null) cancelText.text = state.CanCancelShoot
+                ? "取消射击" : overCancel ? "松开以取消" : "拖到这里取消";
+            if (cancelShootButton != null) cancelShootButton.interactable = state.CanCancelShoot;
             if (endTurnButton != null) endTurnButton.interactable = state.CanEndTurn && !IsInputBlocked;
             if (state.SelectedUnit == null)
             {
@@ -337,6 +356,7 @@ namespace Wargame.Battle
             if (endTurnButton != null) endTurnButton.onClick.RemoveListener(OnEndTurnClicked);
             if (confirmEndTurnButton != null) confirmEndTurnButton.onClick.RemoveListener(ConfirmAction);
             if (cancelEndTurnButton != null) cancelEndTurnButton.onClick.RemoveListener(CancelAction);
+            if (cancelShootButton != null) cancelShootButton.onClick.RemoveListener(CancelShootAction);
             CloseConfirmation();
             for (int i = 0; i < abilityButtons.Count; i++)
                 if (abilityButtons[i] != null)

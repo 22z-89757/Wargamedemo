@@ -55,7 +55,7 @@ namespace Wargame.Battle
         public static string ShotOutcome(ShootResult result)
         {
             string outcome = !result.Hit ? "未命中" : result.Grazing ? "擦伤" : "命中";
-            return $"{result.Target.DisplayName}：{outcome}，伤害 {result.Damage:0.#}";
+            return $"{result.TargetName}：{outcome}，伤害 {result.Damage:0.#}";
         }
 
         public static string EndTurnWarning => "仍有行动力未使用，确定要结束回合吗？";

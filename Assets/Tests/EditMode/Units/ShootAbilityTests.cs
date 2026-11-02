@@ -40,6 +40,7 @@ namespace Wargame.Tests
             ShootPreview preview = shoot.GetPreview(target);
 
             Assert.That(preview.IsAvailable, Is.True);
+            Assert.That(preview.FiringOrigin, Is.EqualTo(Vector2Int.zero));
             Assert.That(preview.TargetName, Is.EqualTo("Target"));
             Assert.That(preview.Distance, Is.EqualTo(6));
             Assert.That(preview.HitChance, Is.EqualTo(65f));
@@ -99,6 +100,7 @@ namespace Wargame.Tests
             Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
             Assert.That(shoot.LastResult.Distance, Is.EqualTo(6));
             Assert.That(shoot.LastResult.HitChance, Is.EqualTo(preview.HitChance));
+            Assert.That(shoot.LastResult.FiringOrigin, Is.EqualTo(preview.FiringOrigin));
             Assert.That(grid.TryGetUnitCoordinates(shooter, out Vector2Int shooterAfter), Is.True);
             Assert.That(grid.TryGetUnitCoordinates(target, out Vector2Int targetAfter), Is.True);
             Assert.That(shooterAfter, Is.EqualTo(shooterPosition));
@@ -163,6 +165,141 @@ namespace Wargame.Tests
             Assert.That(shoot.GetPreview(target).IsAvailable, Is.False);
             Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.False);
             Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
+        }
+
+        [Test]
+        public void MultiplePeekOriginsUseStableOrthogonalOrder()
+        {
+            Vector2Int shooterPosition = new Vector2Int(4, 4);
+            Vector2Int targetPosition = new Vector2Int(10, 4);
+            Assert.That(grid.TryMoveUnit(shooter, shooterPosition), Is.True);
+            Assert.That(grid.TryMoveUnit(target, targetPosition), Is.True);
+            grid.TrySetBlockState(new Vector2Int(5, 4), BlockState.FullBlocked);
+
+            Assert.That(shoot.TryGetFiringOrigin(shooterPosition, targetPosition, out Vector2Int origin), Is.True);
+            Assert.That(origin, Is.EqualTo(new Vector2Int(4, 3)),
+                "当前格受阻时必须按下、右、上、左的固定顺序选择首个有效探头格。");
+            Assert.That(shoot.GetPreview(target).FiringOrigin, Is.EqualTo(origin));
+        }
+
+        [Test]
+        public void VisualShotDelaysDamageAndRejectsDuplicateActivation()
+        {
+            var visual = new FakeShootVisual();
+            shooter.Abilities.Remove(shoot);
+            shoot = new ShootAbility(grid, new ShootSettings(), visual, new FixedShootRandomSource(0f, 0.99f));
+            shooter.Abilities.Grant(shoot);
+            float health = target.Attributes.GetValue(AttributeType.Health);
+
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
+            Assert.That(shoot.IsActive, Is.True);
+            Assert.That(shooter.Abilities.ActiveExclusiveAbility, Is.SameAs(shoot));
+            Assert.That(target.Attributes.GetValue(AttributeType.Health), Is.EqualTo(health));
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out AbilityFailReason reason), Is.False);
+            Assert.That(reason, Is.EqualTo(AbilityFailReason.AlreadyActive));
+            Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1));
+
+            visual.Arrive();
+            float damagedHealth = target.Attributes.GetValue(AttributeType.Health);
+            Assert.That(damagedHealth, Is.EqualTo(health - ShootRules.BaseDamage));
+            visual.Arrive();
+            Assert.That(target.Attributes.GetValue(AttributeType.Health), Is.EqualTo(damagedHealth));
+            visual.Complete();
+            visual.Complete();
+            Assert.That(shoot.IsActive, Is.False);
+            Assert.That(shooter.Abilities.ActiveExclusiveAbility, Is.Null);
+        }
+
+        [Test]
+        public void CancellingBeforeArrivalDoesNotDamageButArrivalBeforeCancelIsNotRolledBack()
+        {
+            var visual = new FakeShootVisual();
+            shooter.Abilities.Remove(shoot);
+            shoot = new ShootAbility(grid, new ShootSettings(), visual, new FixedShootRandomSource(0f, 0.99f));
+            shooter.Abilities.Grant(shoot);
+            float health = target.Attributes.GetValue(AttributeType.Health);
+
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
+            shooter.Abilities.CancelAll();
+            visual.Arrive();
+            Assert.That(target.Attributes.GetValue(AttributeType.Health), Is.EqualTo(health));
+            Assert.That(shoot.IsActive, Is.False);
+
+            shooter.Attributes.SetBaseValue(AttributeType.ActionPoints, 2f);
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
+            visual.Arrive();
+            float damagedHealth = target.Attributes.GetValue(AttributeType.Health);
+            shooter.Abilities.CancelAll();
+            visual.Arrive();
+            Assert.That(target.Attributes.GetValue(AttributeType.Health), Is.EqualTo(damagedHealth));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void EnemyUsesSameVisualFlowForOrdinaryAndPeekShots(bool peek)
+        {
+            shooter.Faction = Faction.Enemy;
+            target.Faction = Faction.Player;
+            if (peek) grid.TrySetBlockState(new Vector2Int(1, 0), BlockState.FullBlocked);
+            var visual = new FakeShootVisual();
+            shooter.Abilities.Remove(shoot);
+            shoot = new ShootAbility(grid, new ShootSettings(), visual, new FixedShootRandomSource(0f, 0.99f));
+            shooter.Abilities.Grant(shoot);
+            Vector2Int original = Vector2Int.zero;
+
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
+            Assert.That(visual.LogicalOrigin, Is.EqualTo(original));
+            Assert.That(visual.FiringOrigin == original, Is.EqualTo(!peek));
+            Assert.That(grid.TryGetUnitCoordinates(shooter, out Vector2Int occupied), Is.True);
+            Assert.That(occupied, Is.EqualTo(original));
+            visual.Arrive();
+            visual.Complete();
+            Assert.That(shoot.IsActive, Is.False);
+            Assert.That(grid.TryGetUnitCoordinates(shooter, out occupied), Is.True);
+            Assert.That(occupied, Is.EqualTo(original));
+        }
+
+        [TestCase(0f, 0.99f, true, false)]
+        [TestCase(0f, 0f, true, true)]
+        [TestCase(0.99f, 0.99f, false, false)]
+        public void HitGrazeAndMissEachStartExactlyOneVisual(float hitRoll, float dodgeRoll,
+            bool expectedHit, bool expectedGraze)
+        {
+            var visual = new FakeShootVisual();
+            target.Attributes.SetBaseValue(AttributeType.Dodge, expectedGraze ? 100f : 0f);
+            shooter.Abilities.Remove(shoot);
+            shoot = new ShootAbility(grid, new ShootSettings(), visual,
+                new FixedShootRandomSource(hitRoll, dodgeRoll));
+            shooter.Abilities.Grant(shoot);
+
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
+            Assert.That(visual.PlayCount, Is.EqualTo(1));
+            visual.Arrive();
+            visual.Complete();
+            Assert.That(shoot.LastResult.Hit, Is.EqualTo(expectedHit));
+            Assert.That(shoot.LastResult.Grazing, Is.EqualTo(expectedGraze));
+            Assert.That(visual.PlayCount, Is.EqualTo(1));
+        }
+
+        [TestCase("dead")]
+        [TestCase("disabled")]
+        [TestCase("destroyed")]
+        public void TargetBecomingUnavailableBeforeArrivalStillEndsSafely(string state)
+        {
+            var visual = new FakeShootVisual();
+            shooter.Abilities.Remove(shoot);
+            shoot = new ShootAbility(grid, new ShootSettings(), visual, new FixedShootRandomSource(0f, 0.99f));
+            shooter.Abilities.Grant(shoot);
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
+
+            if (state == "dead") target.Kill();
+            else if (state == "disabled") target.gameObject.SetActive(false);
+            else Object.DestroyImmediate(target.gameObject);
+
+            Assert.DoesNotThrow(() => visual.Arrive());
+            Assert.DoesNotThrow(() => visual.Complete());
+            Assert.That(shoot.IsActive, Is.False);
+            Assert.That(shooter.Abilities.ActiveExclusiveAbility, Is.Null);
         }
 
         [Test]
@@ -410,6 +547,46 @@ namespace Wargame.Tests
         private sealed class ThrowingShootRandomSource : IShootRandomSource
         {
             public float NextValue() => throw new System.InvalidOperationException("test random failure");
+        }
+
+        private sealed class FakeShootVisual : IUnitShootVisual
+        {
+            private System.Action arrived;
+            private System.Action<bool> completed;
+            public bool IsConfigured => true;
+            public bool IsPlaying => completed != null;
+            public Vector2Int LogicalOrigin { get; private set; }
+            public Vector2Int FiringOrigin { get; private set; }
+            public int PlayCount { get; private set; }
+
+            public void SetStartGate(System.Func<bool> canStart) { }
+
+            public void PlayShot(GridManager shotGrid, Unit shotTarget, Vector2Int logicalOrigin,
+                Vector2Int firingOrigin, System.Action onProjectileArrived, System.Action<bool> onCompleted)
+            {
+                PlayCount++;
+                LogicalOrigin = logicalOrigin;
+                FiringOrigin = firingOrigin;
+                arrived = onProjectileArrived;
+                completed = onCompleted;
+            }
+
+            public void StopShot(bool notify = true)
+            {
+                if (!notify) return;
+                System.Action<bool> callback = completed;
+                completed = null;
+                callback?.Invoke(true);
+            }
+
+            public void Arrive() => arrived?.Invoke();
+
+            public void Complete()
+            {
+                System.Action<bool> callback = completed;
+                completed = null;
+                callback?.Invoke(false);
+            }
         }
     }
 }

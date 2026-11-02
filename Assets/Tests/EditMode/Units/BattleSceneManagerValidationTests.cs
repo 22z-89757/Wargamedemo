@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
+using Unity.Cinemachine;
 using Wargame.Battle;
 using Wargame.GridSystem;
 using Wargame.Units;
@@ -116,6 +117,22 @@ namespace Wargame.Tests
         }
 
         [Test]
+        public void MissingShootVisualConfigurationIsRejectedBeforeSpawning()
+        {
+            var invalid = CreateUnit("InvalidPrefab");
+            invalid.gameObject.AddComponent<BoxCollider>();
+            invalid.gameObject.AddComponent<UnitMovementVisual>();
+            invalid.gameObject.AddComponent<UnitShootVisualController>();
+            prefab = invalid;
+            SetSpawns(Vector2Int.one);
+
+            Assert.That(battle.TryInitialize(out string error), Is.False);
+            Assert.That(error, Does.Contain("UnitShootVisualController"));
+            Assert.That(error, Does.Contain("modelRoot"));
+            Assert.That(battle.SpawnedUnits, Is.Empty);
+        }
+
+        [Test]
         public void Map1HasIndependentNonInteractiveHealthCanvas()
         {
             var scene = EditorSceneManager.OpenPreviewScene("Assets/Scenes/Map1.unity");
@@ -154,6 +171,19 @@ namespace Wargame.Tests
                 Assert.That(hud.InfoCanvas, Is.Not.SameAs(canvas));
                 Assert.That(hud.InfoCanvas.GetComponent<GraphicRaycaster>(), Is.Null);
                 Assert.That(hud.InfoCanvas.GetComponentsInChildren<Graphic>(true).All(graphic => !graphic.raycastTarget), Is.True);
+
+                UnitBattleCameraSet playerCameras = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Units/Player.prefab")
+                    .GetComponent<UnitBattleCameraSet>();
+                UnitBattleCameraSet enemyCameras = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Units/Enemy.prefab")
+                    .GetComponent<UnitBattleCameraSet>();
+                Assert.That(playerCameras.ValidateConfiguration(Faction.Player, out string cameraError), Is.True, cameraError);
+                Assert.That(playerCameras.Cameras.Count(), Is.EqualTo(1));
+                Assert.That(enemyCameras.ValidateConfiguration(Faction.Enemy, out cameraError), Is.True, cameraError);
+                Assert.That(enemyCameras.Cameras.Count(), Is.EqualTo(4));
+                var brain = manager.CameraRig.Brain;
+                Assert.That(brain, Is.Not.Null);
+                Assert.That(brain.DefaultBlend.Style, Is.EqualTo(CinemachineBlendDefinition.Styles.EaseInOut));
+                Assert.That(brain.DefaultBlend.Time, Is.EqualTo(.5f).Within(.001f));
             }
             finally { EditorSceneManager.ClosePreviewScene(scene); }
         }

@@ -21,6 +21,7 @@ namespace Wargame.Battle
         private ShootPreview? selectedTarget;
         private bool canFire;
         private bool showTargets;
+        private bool canCancelShoot;
         private bool initialized;
 
         public BattleUiState CurrentState { get; private set; }
@@ -53,11 +54,13 @@ namespace Wargame.Battle
             Refresh();
         }
 
-        public void SetMovement(MovePlan plan, bool isDragging, bool isOverCancel, string movementHint)
+        public void SetMovement(MovePlan plan, bool isDragging, bool isOverCancel, string movementHint,
+            bool canCancelPendingShoot = false)
         {
             movePlan = plan;
             dragging = isDragging;
             overCancel = isOverCancel;
+            canCancelShoot = canCancelPendingShoot;
             hint = movementHint ?? string.Empty;
             Refresh();
         }
@@ -86,7 +89,8 @@ namespace Wargame.Battle
 
             CurrentState = new BattleUiState(scene.Turns.RoundNumber, scene.Turns.CurrentFaction,
                 scene.CanEndPlayerTurn && !dragging, scene.HasUnspentPlayerActionPoints,
-                hint, selectedState, targets, selectedTarget, canFire, showTargets && scene.CanIssueOrders);
+                hint, selectedState, targets, selectedTarget, canFire, showTargets && scene.CanIssueOrders,
+                canCancelShoot && scene.CanIssueOrders);
             view.RenderState(CurrentState, movePlan, dragging, overCancel);
             StateChanged?.Invoke(CurrentState);
         }
