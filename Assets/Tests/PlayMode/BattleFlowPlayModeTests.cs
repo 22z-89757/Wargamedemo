@@ -596,10 +596,13 @@ namespace Wargame.Tests
         {
             Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
             Vector2Int shooterCell = new Vector2Int(1, 1);
-            Vector2Int targetCell = new Vector2Int(2, 0);
-            battle.Grid.TrySetBlockState(new Vector2Int(2, 0), Wargame.GridSystem.BlockState.Unblocked);
-            battle.Grid.TrySetBlockState(new Vector2Int(2, 1), Wargame.GridSystem.BlockState.Unblocked);
-            battle.Grid.TrySetBlockState(new Vector2Int(1, 0), Wargame.GridSystem.BlockState.FullBlocked);
+            Vector2Int targetCell = new Vector2Int(7, 1);
+            for (int x = shooterCell.x; x <= targetCell.x; x++)
+            {
+                battle.Grid.TrySetBlockState(new Vector2Int(x, 1), Wargame.GridSystem.BlockState.Unblocked);
+                battle.Grid.TrySetBlockState(new Vector2Int(x, 2), Wargame.GridSystem.BlockState.Unblocked);
+            }
+            battle.Grid.TrySetBlockState(new Vector2Int(2, 1), Wargame.GridSystem.BlockState.FullBlocked);
             Assert.That(battle.Grid.TryMoveUnit(enemy, targetCell), Is.True);
             enemy.transform.position = battle.Grid.GridToWorld(targetCell);
             player.Attributes.SetBaseValue(AttributeType.Aim, 100f);
@@ -626,6 +629,44 @@ namespace Wargame.Tests
             Assert.That(targetAfter, Is.EqualTo(targetBefore));
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1f));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(6f));
+        }
+
+        [UnityTest]
+        public IEnumerator TargetEdgeBehindWallStaysSelectableUntilEveryRayIsBlocked()
+        {
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            Vector2Int targetCell = new Vector2Int(7, 3);
+            for (int x = 0; x <= targetCell.x; x++)
+            for (int y = 0; y <= targetCell.y + 1; y++)
+                Assert.That(battle.Grid.TrySetBlockState(new Vector2Int(x, y),
+                    Wargame.GridSystem.BlockState.Unblocked), Is.True);
+            Assert.That(battle.Grid.TryMoveUnit(enemy, targetCell), Is.True);
+            enemy.transform.position = battle.Grid.GridToWorld(targetCell);
+            Assert.That(battle.Grid.TrySetBlockState(new Vector2Int(6, 3),
+                Wargame.GridSystem.BlockState.FullBlocked), Is.True);
+            player.Attributes.SetBaseValue(AttributeType.Aim, 100f);
+            Physics.SyncTransforms();
+            yield return SettleFrame();
+
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            yield return RequestShoot(hud);
+            Assert.That(hud.VisibleTargetCount, Is.EqualTo(1),
+                "格心连线受阻但目标格边缘可见时，敌人必须保留在目标列表中。");
+            yield return ClickUi(hud.TargetButtons[0]);
+            Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
+            Assert.That(hud.IsAbilityConfirmationVisible, Is.True);
+            yield return ClickUi(hud.ConfirmButton);
+            yield return WaitForActiveAction();
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1f));
+            Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(6f));
+
+            for (int y = 0; y < battle.Grid.Height; y++)
+                Assert.That(battle.Grid.TrySetBlockState(new Vector2Int(4, y),
+                    Wargame.GridSystem.BlockState.FullBlocked), Is.True);
+            yield return SettleFrame();
+            yield return RequestShoot(hud);
+            Assert.That(hud.VisibleTargetCount, Is.Zero,
+                "整列墙阻断所有起点到目标顶点的射线后，敌人必须从目标列表移除。");
         }
 
         [UnityTest]

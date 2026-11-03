@@ -39,7 +39,7 @@ MapData 资产保存全部格子的坐标、代价、障碍和四边掩体，不
 
 ### 视线查询（LOS）
 
-`GridLineOfSight` 在逻辑格子中心之间执行二维 supercover 查询。遍历器只依赖 `ILineOfSightMap` 的边界与阻挡查询；`GridLineOfSightMapModifier` 将运行时 `GridManager` 适配为该接口，不依赖单位能力、战斗输入或物理碰撞体。地图不可用或任一坐标越界时返回 `false`；端点格不检查阻挡，同格查询在坐标有效时返回 `true`。
+`GridLineOfSight` 从逻辑起点格中心分别向目标格四个顶点执行二维 supercover 查询，任一射线抵达目标格边界即报告可见。查询具有方向性，`A -> B` 与 `B -> A` 分别使用各自的观察格心和目标边界，不保证结果相同。遍历器只依赖 `ILineOfSightMap` 的边界与阻挡查询；`GridLineOfSightMapModifier` 将运行时 `GridManager` 适配为该接口，不依赖单位能力、战斗输入或物理碰撞体。地图不可用或任一坐标越界时返回 `false`；端点格不检查阻挡，同格查询在坐标有效时返回 `true`。
 
 ```csharp
 var lineOfSightMap = new GridLineOfSightMapModifier(grid);
@@ -47,7 +47,7 @@ bool visible = GridLineOfSight.HasLineOfSight(lineOfSightMap,
     new Vector2Int(1, 1), new Vector2Int(6, 4));
 ```
 
-适配器只将 `FullBlocked` 视为阻挡；`HalfBlocked`、单位占用和方向掩体不影响查询。视线恰好穿过格角时会同时检查角点两侧相邻格，任一侧为全障碍都会阻挡。当前规则不计算高低差、部分掩体或单位轮廓；调用方通过接口查询 LOS。
+适配器只将 `FullBlocked` 视为阻挡；`HalfBlocked`、单位占用和方向掩体不影响查询。射线在抵达目标格之前恰好穿过格角时会同时检查角点两侧相邻格，任一侧为全障碍都会阻挡；指定目标顶点是终止成功点，不检查仅在该终点相接的外侧障碍。当前规则不计算高低差、部分掩体或单位轮廓；调用方通过接口查询 LOS。
 
 ### 远程射击
 
@@ -55,7 +55,7 @@ bool visible = GridLineOfSight.HasLineOfSight(lineOfSightMap,
 
 目标的距离条件只受攻击者当前 `AttributeType.SightRange` 限制，视线由 LOS 决定，没有独立武器射程。统一逻辑格距为 `floor(sqrt(dx² + dy²))`，同时用于视野比较和曲线采样，例如 `(1,1)` 为 1 格，`(3,4)` 为 5 格；等于 SightRange 时满足距离条件。这不改变移动寻路算法。开火前再次检查存活、非中立敌对阵营、棋盘登记、SightRange、LOS、必要属性、回合和 AP，重新计算概率；准备期间参数改变或随机源异常时拒绝提交，不扣 AP。
 
-射击先检查攻击者当前格到目标当前格的 LOS；被阻挡时，再从攻击者周围上下左右 4 个相邻格尝试射线，任一畅通即可探头射击。对角相邻格不作为候选。越界或 `FullBlocked` 的相邻格不能作为起点；半障碍和单位占用不影响候选。目标端点固定在目标当前格，双方逻辑坐标、占格与 Transform 均不因探头改变，SightRange、命中率和结果距离仍按双方实际格距计算。每条候选继续使用通用 LOS 的 supercover 与格角保守规则；开火时重新检查，所有候选被封锁后拒绝射击且不扣 AP。
+射击先检查攻击者当前格中心到目标当前格四顶点的 LOS；被阻挡时，再按下、右、上、左的固定顺序从 4 个正交相邻格尝试同样的四顶点查询，最多形成 20 条候选射线，任一畅通即可探头射击。对角相邻格不作为候选。越界或 `FullBlocked` 的相邻格不能作为起点；半障碍和单位占用不影响候选。双方逻辑坐标、占格与 Transform 均不因探头改变，SightRange、命中率和结果距离仍按双方实际格距计算。每条候选继续使用通用 LOS 的中途格角保守规则，接触目标格边界即成功；开火时重新检查，所有候选被封锁后拒绝射击且不扣 AP。
 
 `Assets/Data/Game/GameSettings.asset` 是默认配置，`Map1` 的 BattleSceneManager 通过 `gameSettings` 字段显式引用；可用 Create → Wargame → Game Settings 创建其他资产并替换场景引用。配置类位于 `Battle/Data`：GameSettings 是 ScriptableObject，其 `ShootSettings` 字段内嵌 `[Serializable] ShootSettings`，不是另一个 SO。`DistanceHitChanceModifier` 为 AnimationCurve，X 是递增非负整数格距，Y 是命中率修正百分点。Inspector 校验将切线统一为 Constant、首尾保持端点，运行时能力创建独立只读快照，不修改资产；配置调整在下一次初始化生效。缺失或非法配置会明确报告错误，不做隐式资源查找或回退。
 

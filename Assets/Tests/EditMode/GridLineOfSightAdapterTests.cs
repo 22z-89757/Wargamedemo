@@ -54,6 +54,24 @@ namespace Wargame.Tests
         }
 
         [Test]
+        public void LiveGridStateDistinguishesVisibleTargetEdgeFromAnOpaqueWall()
+        {
+            Vector2Int from = Vector2Int.zero;
+            Vector2Int to = new Vector2Int(4, 2);
+            Assert.That(grid.TrySetBlockState(new Vector2Int(3, 2), BlockState.FullBlocked), Is.True);
+            Assert.That(GridLineOfSight.HasLineOfSight(_mapModifier, from, to), Is.True,
+                "格心连线受阻时，可见的目标格顶点仍应允许 LOS。");
+
+            for (int y = 0; y < grid.Height; y++)
+                Assert.That(grid.TrySetBlockState(new Vector2Int(2, y), BlockState.FullBlocked), Is.True);
+            Assert.That(GridLineOfSight.HasLineOfSight(_mapModifier, from, to), Is.False);
+
+            for (int y = 0; y < grid.Height; y++)
+                Assert.That(grid.TrySetBlockState(new Vector2Int(2, y), BlockState.HalfBlocked), Is.True);
+            Assert.That(GridLineOfSight.HasLineOfSight(_mapModifier, from, to), Is.True);
+        }
+
+        [Test]
         public void NullGridAndUninitializedGridHaveNoVisibleCells()
         {
             Assert.That(new GridLineOfSightMapModifier(null).Contains(Vector2Int.zero), Is.False);

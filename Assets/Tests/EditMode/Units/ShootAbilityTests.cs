@@ -94,11 +94,14 @@ namespace Wargame.Tests
             ShootPreview preview = shoot.GetPreview(target);
 
             Assert.That(preview.IsAvailable, Is.True);
+            Assert.That(preview.FiringOrigin, Is.EqualTo(new Vector2Int(0, 1)));
+            Assert.That(preview.Distance, Is.EqualTo(6), "探头起点不得缩短双方实际占格距离。");
             Assert.That(shooter.Abilities.CanActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
             Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
             Assert.That(target.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10f));
             Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
             Assert.That(shoot.LastResult.Distance, Is.EqualTo(6));
+            Assert.That(shoot.LastResult.Distance, Is.EqualTo(preview.Distance));
             Assert.That(shoot.LastResult.HitChance, Is.EqualTo(preview.HitChance));
             Assert.That(shoot.LastResult.FiringOrigin, Is.EqualTo(preview.FiringOrigin));
             Assert.That(grid.TryGetUnitCoordinates(shooter, out Vector2Int shooterAfter), Is.True);
@@ -109,6 +112,24 @@ namespace Wargame.Tests
             Assert.That(grid.TryGetCell(targetPosition, out GridCell targetCell), Is.True);
             Assert.That(shooterCell.Occupant, Is.SameAs(shooter));
             Assert.That(targetCell.Occupant, Is.SameAs(target));
+        }
+
+        [Test]
+        public void VisibleTargetCornerAllowsPreviewAndCommitWhenCenterLinesCrossWall()
+        {
+            Vector2Int targetPosition = new Vector2Int(6, 2);
+            Assert.That(grid.TryMoveUnit(target, targetPosition), Is.True);
+            Assert.That(grid.TrySetBlockState(new Vector2Int(5, 2), BlockState.FullBlocked), Is.True);
+
+            ShootPreview preview = shoot.GetPreview(target);
+
+            Assert.That(preview.IsAvailable, Is.True,
+                "当前格及有效探头格到目标格心的连线均穿过 (5,2)，但目标格下边顶点仍可达。");
+            Assert.That(preview.FiringOrigin, Is.EqualTo(Vector2Int.zero));
+            Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.True);
+            Assert.That(shoot.LastResult.FiringOrigin, Is.EqualTo(preview.FiringOrigin));
+            Assert.That(shoot.LastResult.Distance, Is.EqualTo(6));
+            Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1f));
         }
 
         [Test]
@@ -134,10 +155,14 @@ namespace Wargame.Tests
         [Test]
         public void RejectsShotWhenAllCurrentAndAdjacentLinesAreBlocked()
         {
+            Assert.That(grid.TryMoveUnit(shooter, new Vector2Int(4, 4)), Is.True);
+            Assert.That(grid.TryMoveUnit(target, new Vector2Int(10, 4)), Is.True);
             for (int y = 0; y < grid.Height; y++)
-                grid.TrySetBlockState(new Vector2Int(3, y), BlockState.FullBlocked);
+                grid.TrySetBlockState(new Vector2Int(7, y), BlockState.FullBlocked);
 
             Assert.That(shoot.GetPreview(target).IsAvailable, Is.False);
+            Assert.That(shoot.TryGetFiringOrigin(new Vector2Int(4, 4), new Vector2Int(10, 4), out _), Is.False,
+                "棋盘内部 5 个有效起点到 4 个目标顶点的 20 条射线都应被整列墙阻挡。");
             Assert.That(shooter.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(target), out _), Is.False);
             Assert.That(shooter.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
             Assert.That(target.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10f));

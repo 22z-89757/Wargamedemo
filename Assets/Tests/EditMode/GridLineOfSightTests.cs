@@ -44,6 +44,27 @@ namespace Wargame.Tests
         }
 
         [Test]
+        public void VisibleTargetCornerAllowsSightWhenCenterLineIsBlocked()
+        {
+            Vector2Int from = Vector2Int.zero;
+            Vector2Int to = new Vector2Int(6, 2);
+            map.SetBlocked(new Vector2Int(5, 2), true);
+
+            Assert.That(GridLineOfSight.HasLineOfSight(map, from, to), Is.True);
+        }
+
+        [Test]
+        public void WallAcrossEveryTargetCornerBlocksSight()
+        {
+            Vector2Int from = new Vector2Int(0, 3);
+            Vector2Int to = new Vector2Int(6, 3);
+            for (int y = 0; y < 7; y++)
+                map.SetBlocked(new Vector2Int(3, y), true);
+
+            Assert.That(GridLineOfSight.HasLineOfSight(map, from, to), Is.False);
+        }
+
+        [Test]
         public void NullMapAndOutOfBoundsEndpointsAreNotVisible()
         {
             Assert.That(GridLineOfSight.HasLineOfSight(null, Vector2Int.zero, Vector2Int.zero), Is.False);
@@ -65,10 +86,12 @@ namespace Wargame.Tests
         }
 
         [Test]
-        public void BlockerAtExactDiagonalCornerBlocksSight()
+        public void IntermediateCornerBlockersCanCoverEveryTargetRay()
         {
             map.SetBlocked(new Vector2Int(1, 0), true);
-            Assert.That(GridLineOfSight.HasLineOfSight(map, Vector2Int.zero, new Vector2Int(2, 2)), Is.False);
+            map.SetBlocked(new Vector2Int(0, 1), true);
+
+            Assert.That(GridLineOfSight.HasLineOfSight(map, Vector2Int.zero, new Vector2Int(4, 4)), Is.False);
         }
 
         [Test]
@@ -78,12 +101,30 @@ namespace Wargame.Tests
         }
 
         [Test]
-        public void ReverseEndpointsProduceSameResult()
+        public void TerminalCornerContactIgnoresWallsThatOnlyShareTheEndpoint()
         {
             map.SetBlocked(new Vector2Int(2, 1), true);
-            Vector2Int from = new Vector2Int(0, 0);
-            Vector2Int to = new Vector2Int(6, 3);
-            Assert.That(GridLineOfSight.HasLineOfSight(map, from, to), Is.False);
+            map.SetBlocked(new Vector2Int(1, 2), true);
+
+            Assert.That(GridLineOfSight.HasLineOfSight(map, Vector2Int.zero, new Vector2Int(2, 2)), Is.True);
+        }
+
+        [Test]
+        public void BlockerBeforeTargetBoundaryStillBlocksEveryRay()
+        {
+            map.SetBlocked(new Vector2Int(1, 1), true);
+
+            Assert.That(GridLineOfSight.HasLineOfSight(map, Vector2Int.zero, new Vector2Int(2, 2)), Is.False);
+        }
+
+        [Test]
+        public void ForwardAndReverseQueriesUseTheirOwnTargetBoundary()
+        {
+            Vector2Int from = Vector2Int.zero;
+            Vector2Int to = new Vector2Int(6, 2);
+            map.SetBlocked(new Vector2Int(5, 2), true);
+
+            Assert.That(GridLineOfSight.HasLineOfSight(map, from, to), Is.True);
             Assert.That(GridLineOfSight.HasLineOfSight(map, to, from), Is.False);
         }
 
