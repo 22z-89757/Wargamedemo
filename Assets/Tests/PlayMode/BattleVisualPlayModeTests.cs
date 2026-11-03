@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Unity.Cinemachine;
@@ -20,6 +21,7 @@ namespace Wargame.Tests
         [TearDown]
         public void TearDown()
         {
+            Time.timeScale = 1f;
             foreach (GameObject go in created)
                 if (go != null) Object.DestroyImmediate(go);
             created.Clear();
@@ -169,6 +171,11 @@ namespace Wargame.Tests
             director.FocusTarget(null);
             Assert.That(tactical.Priority.Value, Is.EqualTo(10));
             director.Dispose();
+            const System.Reflection.BindingFlags fields = System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+            Assert.That(typeof(BattleCameraDirector).GetField("resultPopup", fields), Is.Null);
+            Assert.That(typeof(BattleCameraDirector).GetField("outputCamera", fields), Is.Null);
+            Assert.That(typeof(BattleCameraDirector).GetMethod("ShowResult", fields), Is.Null);
         }
 
         [UnityTest]
@@ -208,22 +215,122 @@ namespace Wargame.Tests
             var cameraObject = new GameObject("PopupCamera");
             created.Add(cameraObject);
             Camera camera = cameraObject.AddComponent<Camera>();
-            bool completed = false;
-            BattleShotResultPopup popup = BattleShotResultPopup.Create("Enemy", "Enemy：命中，伤害 4",
-                Vector3.zero, camera, () => completed = true);
+            camera.transform.rotation = Quaternion.Euler(15f, 25f, 0f);
+            BattleShotResultPopup popup = CreatePopupView("PopupView");
+            Vector3 snapshot = new Vector3(2f, 0f, 3f);
+            var result = new ShootResult(null, "Enemy", snapshot, true, false, 4f, 4, 100f,
+                Vector2Int.zero);
+            int completed = 0;
+            popup.Play(result, "Enemy：命中，伤害 4", camera, view =>
+            {
+                completed++;
+                Object.Destroy(view.gameObject);
+            });
             Assert.That(popup.Message, Does.Contain("命中").And.Contain("4"));
-            TextMesh popupText = popup.GetComponent<TextMesh>();
-            Assert.That(popupText.fontSize, Is.EqualTo(64));
-            Assert.That(popupText.characterSize, Is.EqualTo(.04f));
-            Assert.That(popupText.fontStyle, Is.EqualTo(FontStyle.Bold));
-            Assert.That(popupText.GetComponent<MeshRenderer>().bounds.size.y, Is.GreaterThan(.2f),
+            Assert.That(popup.Label, Is.TypeOf<TextMeshPro>());
+            Assert.That(popup.GetComponent<Canvas>(), Is.Null);
+            Assert.That(popup.GetComponent<TextMesh>(), Is.Null);
+            Assert.That(popup.Label.color, Is.EqualTo(popup.HitColor));
+            Assert.That(popup.transform.position,
+                Is.EqualTo(snapshot + Vector3.up * popup.WorldOffset));
+            Assert.That(Quaternion.Angle(popup.transform.rotation, camera.transform.rotation), Is.LessThan(.01f));
+            popup.Label.ForceMeshUpdate();
+            Assert.That(popup.Label.GetComponent<MeshRenderer>().bounds.size.y, Is.GreaterThan(.2f),
                 "跳字在每格 1 世界单位的战场上必须有可读的世界高度。");
+            Assert.That(popup.HoldDuration, Is.GreaterThanOrEqualTo(2f));
 
-            yield return new WaitForSecondsRealtime(1.8f);
-            Assert.That(completed, Is.False);
+            Time.timeScale = 0f;
+            camera.transform.rotation = Quaternion.Euler(20f, 40f, 0f);
+            yield return null;
+            Assert.That(Quaternion.Angle(popup.transform.rotation, camera.transform.rotation), Is.LessThan(.01f));
+            yield return new WaitForSecondsRealtime(1.5f);
+            Assert.That(completed, Is.Zero);
             Assert.That(popup != null, Is.True);
-            yield return new WaitForSecondsRealtime(.3f);
-            Assert.That(completed, Is.True);
+            yield return new WaitForSecondsRealtime(.7f);
+            Assert.That(completed, Is.EqualTo(1));
+            yield return null;
+            Assert.That(popup == null, Is.True);
+        }
+
+        [Test]
+        public void ShotResultPopupStylesAndCancellationAreDeterministic()
+        {
+            var cameraObject = new GameObject("PopupCamera");
+            created.Add(cameraObject);
+            Camera camera = cameraObject.AddComponent<Camera>();
+            BattleShotResultPopup popup = CreatePopupView("PopupView");
+            int completed = 0;
+            var grazing = new ShootResult(null, "Enemy", Vector3.zero, true, true, 2f, 4, 100f,
+                Vector2Int.zero);
+            popup.Play(grazing, "擦伤", camera, _ => completed++);
+            Assert.That(popup.Label.color, Is.EqualTo(popup.GrazingColor));
+            popup.Cancel();
+            popup.Cancel();
+            Assert.That(popup.IsPlaying, Is.False);
+            Assert.That(completed, Is.Zero);
+
+            var miss = new ShootResult(null, "Enemy", Vector3.right, false, false, 0f, 4, 0f,
+                Vector2Int.zero);
+            popup.Play(miss, "未命中", camera, _ => completed++);
+            Assert.That(popup.Label.color, Is.EqualTo(popup.MissColor));
+            popup.Cancel();
+            Assert.That(completed, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator DamagePopupManagerCreatesDistinctInstancesAndClearsWithoutCallbacks()
+        {
+            var cameraObject = new GameObject("PopupCamera");
+            created.Add(cameraObject);
+            Camera camera = cameraObject.AddComponent<Camera>();
+            BattleShotResultPopup prefab = CreatePopupView("PopupPrefab");
+            var managerObject = new GameObject("PopupManager");
+            created.Add(managerObject);
+            var manager = managerObject.AddComponent<BattleDamagePopupManager>();
+            manager.Configure(prefab);
+            manager.Initialize(camera);
+            int completed = 0;
+            var first = new ShootResult(null, "First", Vector3.zero, true, false, 4f, 4, 100f,
+                Vector2Int.zero);
+            var second = new ShootResult(null, "Second", Vector3.right, false, false, 0f, 4, 0f,
+                Vector2Int.zero);
+
+            Assert.That(manager.ShowShotResult(first, () => completed++), Is.True);
+            Assert.That(manager.ShowShotResult(second, () => completed++), Is.True);
+            Assert.That(manager.ActiveCount, Is.EqualTo(2));
+            BattleShotResultPopup[] instances = manager.GetComponentsInChildren<BattleShotResultPopup>();
+            Assert.That(instances.Length, Is.EqualTo(2));
+            Assert.That(instances[0], Is.Not.SameAs(instances[1]));
+
+            manager.Clear();
+            manager.Clear();
+            Assert.That(manager.ActiveCount, Is.Zero);
+            Assert.That(completed, Is.Zero);
+            yield return null;
+            Assert.That(manager.GetComponentsInChildren<BattleShotResultPopup>().Length, Is.Zero);
+        }
+
+        [Test]
+        public void DamagePopupManagerRejectsMissingOrInvalidPrefabConfiguration()
+        {
+            var managerObject = new GameObject("PopupManager");
+            created.Add(managerObject);
+            var manager = managerObject.AddComponent<BattleDamagePopupManager>();
+            Assert.That(manager.ValidateConfiguration(out string missingError), Is.False);
+            StringAssert.Contains("Prefab", missingError);
+
+            var invalidObject = new GameObject("InvalidPopup");
+            created.Add(invalidObject);
+            TextMeshPro invalidText = invalidObject.AddComponent<TextMeshPro>();
+            var invalidView = invalidObject.AddComponent<BattleShotResultPopup>();
+            invalidView.Configure(null);
+            manager.Configure(invalidView);
+            Assert.That(manager.ValidateConfiguration(out string textError), Is.False);
+            StringAssert.Contains("TextMeshPro", textError);
+
+            BattleShotResultPopup validView = CreatePopupView("ValidPopup");
+            manager.Configure(validView);
+            Assert.That(manager.ValidateConfiguration(out string validError), Is.True, validError);
         }
 
         [UnityTest]
@@ -416,6 +523,23 @@ namespace Wargame.Tests
             var visual = attackerObject.AddComponent<UnitShootVisualController>();
             visual.Configure(modelObject.transform, muzzleObject.transform, projectilePrefab);
             return visual;
+        }
+
+        private BattleShotResultPopup CreatePopupView(string name)
+        {
+            var popupObject = new GameObject(name);
+            created.Add(popupObject);
+            TextMeshPro text = popupObject.AddComponent<TextMeshPro>();
+            text.font = TMP_Settings.defaultFontAsset;
+            text.fontSize = 4f;
+            text.fontStyle = FontStyles.Bold;
+            text.alignment = TextAlignmentOptions.Center;
+            text.rectTransform.sizeDelta = new Vector2(20f, 5f);
+            popupObject.transform.localScale = Vector3.one * .7f;
+            var popup = popupObject.AddComponent<BattleShotResultPopup>();
+            popup.Configure(text);
+            Assert.That(popup.ValidateConfiguration(out string error), Is.True, error);
+            return popup;
         }
 
         private static int CountProjectileClones(GameObject prefab)

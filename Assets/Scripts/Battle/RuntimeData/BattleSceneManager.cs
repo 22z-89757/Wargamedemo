@@ -28,6 +28,7 @@ namespace Wargame.Battle
         [SerializeField] private BattleHUD hud;
         [SerializeField] private BattleCameraRig cameraRig;
         [SerializeField] private BattleUnitHealthBars healthBars;
+        [SerializeField] private BattleDamagePopupManager damagePopups;
         [SerializeField] private bool startAutomatically = true;
         [SerializeField] private List<UnitSpawnEntry> playerSpawns = new List<UnitSpawnEntry>();
         [SerializeField] private List<UnitSpawnEntry> enemySpawns = new List<UnitSpawnEntry>();
@@ -42,6 +43,7 @@ namespace Wargame.Battle
         public BattleCameraRig CameraRig => cameraRig;
         public BattleCameraDirector CameraDirector => cameraDirector;
         public BattleUnitHealthBars HealthBars => healthBars;
+        public BattleDamagePopupManager DamagePopups => damagePopups;
         public bool HasActiveGesture => playerController != null && playerController.HasActiveGesture;
         public IReadOnlyList<Unit> SpawnedUnits => spawned;
         public bool HasActiveAction
@@ -97,6 +99,8 @@ namespace Wargame.Battle
             { error = "需要显式引用 GameSettings 射击配置资产。"; return false; }
             if (!gameSettings.TryValidate(out error)) return false;
             if (healthBars == null) { error = "需要独立 Canvas 上的 BattleUnitHealthBars 血条层。"; return false; }
+            if (damagePopups == null || !damagePopups.ValidateConfiguration(out error))
+            { error = "需要有效的 BattleDamagePopupManager。" + (string.IsNullOrEmpty(error) ? string.Empty : " " + error); return false; }
             if (turns.State != BattleState.NotStarted || turns.Units.Count != 0)
             { error = "回合管理器必须尚未开始且没有已注册单位。"; return false; }
             var occupied = new HashSet<Vector2Int>();
@@ -114,6 +118,7 @@ namespace Wargame.Battle
                 Spawn(enemySpawns, Faction.Enemy);
                 cameraRig.Initialize(grid, grid.GridToWorld(playerSpawns[0].Coordinates), playerController);
                 cameraDirector = new BattleCameraDirector(cameraRig, spawned);
+                damagePopups.Initialize(cameraRig.OutputCamera);
                 healthBars.Initialize(this, cameraRig.OutputCamera);
                 preview.Initialize(grid);
                 hud.Initialize(this);
@@ -186,7 +191,7 @@ namespace Wargame.Battle
                     unit.Abilities.Grant(new ShootAbility(grid, gameSettings.ShootSettings,
                         unit.GetComponent<UnitShootVisualController>()));
                 }
-                unit.Died += ReleaseUnit;
+                unit.Died += HandleUnitDied;
                 unit.Destroyed += ReleaseUnit;
                 unit.Attributes.AttributeChanged += OnUnitAttributeChanged;
                 unit.Tags.TagChanged += OnUnitTagChanged;
@@ -223,15 +228,24 @@ namespace Wargame.Battle
         private void OnUnitAttributeChanged(AttributeType type, float previous, float value) => Changed?.Invoke();
         private void OnUnitTagChanged(GameplayTag tag, bool added) => Changed?.Invoke();
 
+        private void HandleUnitDied(Unit unit)
+        {
+            if (cleaning || unit == null) return;
+            ReleaseUnit(unit);
+            if (Application.isPlaying) Destroy(unit.gameObject); else DestroyImmediate(unit.gameObject);
+        }
+
         private void ReleaseUnit(Unit unit)
         {
             if (cleaning) return;
+            bool shotOwnerUnavailable = cameraDirector != null && cameraDirector.Shooter == unit;
             cameraDirector?.UnitUnavailable(unit);
+            if (shotOwnerUnavailable) damagePopups?.Clear();
             unit.Abilities.CancelAll();
             unit.EndTurn();
             grid.TryRemoveUnit(unit);
             turns.UnregisterUnit(unit);
-            unit.Died -= ReleaseUnit;
+            unit.Died -= HandleUnitDied;
             unit.Destroyed -= ReleaseUnit;
             unit.Attributes.AttributeChanged -= OnUnitAttributeChanged;
             unit.Tags.TagChanged -= OnUnitTagChanged;
@@ -243,11 +257,12 @@ namespace Wargame.Battle
         private void Cleanup()
         {
             cleaning = true;
+            if (playerController != null) playerController.Shutdown();
+            if (damagePopups != null) damagePopups.Shutdown();
             cameraDirector?.Dispose();
             cameraDirector = null;
             if (hud != null) hud.Shutdown();
             if (healthBars != null) healthBars.Shutdown();
-            if (playerController != null) playerController.Shutdown();
             if (cameraRig != null) cameraRig.Shutdown();
             if (turns != null)
             {
@@ -259,7 +274,7 @@ namespace Wargame.Battle
             {
                 if (unit == null) continue;
                 unit.Abilities.CancelAll();
-                unit.Died -= ReleaseUnit;
+                unit.Died -= HandleUnitDied;
                 unit.Destroyed -= ReleaseUnit;
                 unit.Attributes.AttributeChanged -= OnUnitAttributeChanged;
                 unit.Tags.TagChanged -= OnUnitTagChanged;

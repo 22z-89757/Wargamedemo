@@ -17,11 +17,10 @@ namespace Wargame.Battle
         private Unit shotTarget;
         private Unit shooter;
         private CinemachineCamera shotCamera;
-        private Camera outputCamera;
         private Transform fallbackAim;
-        private BattleShotResultPopup resultPopup;
 
         public Unit FocusedTarget => focusedTarget;
+        public Unit Shooter => shooter;
         public bool IsShowingShot => shotCamera != null;
         public bool IsShotCameraReady => shotCamera != null && (rig == null || rig.IsCameraSettled(shotCamera));
 
@@ -29,7 +28,6 @@ namespace Wargame.Battle
             : this(cameraRig.TacticalCamera, units, () => cameraRig.ViewDirectionIndex)
         {
             rig = cameraRig;
-            outputCamera = cameraRig.OutputCamera;
             rig.RotationCompleted += OnRotationCompleted;
         }
 
@@ -86,11 +84,6 @@ namespace Wargame.Battle
 
         public void EndShot(bool returnToShooterTactical = false)
         {
-            if (resultPopup != null)
-            {
-                resultPopup.Cancel();
-                resultPopup = null;
-            }
             Unit previousShooter = shooter;
             if (shotCamera != null)
             {
@@ -114,19 +107,6 @@ namespace Wargame.Battle
                 fallbackAim = null;
             }
             RestoreFocus();
-        }
-
-        public void ShowResult(ShootResult result)
-        {
-            if (shotCamera == null || outputCamera == null || string.IsNullOrEmpty(result.TargetName))
-            { EndShot(); return; }
-            if (resultPopup != null) resultPopup.Cancel();
-            resultPopup = BattleShotResultPopup.Create(result.TargetName, BattleUiText.ShotOutcome(result),
-                result.TargetPosition + Vector3.up * 1.5f, outputCamera, () =>
-                {
-                    resultPopup = null;
-                    EndShot(true);
-                });
         }
 
         public void UnitUnavailable(Unit unit)

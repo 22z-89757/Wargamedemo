@@ -201,6 +201,16 @@ Map1 使用 Cinemachine 3.1.7：MainCamera 保留渲染、URP 与 AudioListener�
 
 输入仅记录手势与释放请求。CameraRig 在 LateUpdate 先平移/滚屏并 ManualUpdate Cinemachine，玩家控制器随后用本帧实际相机刷新拾取和提交；目标格不变时复用路径，相机变化不会重新构建移动范围。`BattleCameraDirector` 只调度虚拟相机优先级：目标列表选择敌人时按当前棋盘朝向启用对应镜头，旋转完成后重新匹配方向；确认射击后切到玩家后肩镜头，并等待该镜头完全混合后才启动射击视觉；结果跳字结束后把战术中心移动到射击者并恢复战术相机。每个 Enemy Prefab 的 `UnitBattleCameraSet` 配置四台 Follow/RotationComposer 聚焦相机，每个获得 Shoot 能力的 Player Prefab 配置一台跟随 Unit 视觉根节点的射击相机。外部调用可以读取 `ViewCenter`、`IsRotating`，监听 `ViewChanged`，并通过 `TryRotate(-1/1)` 请求旋转。
 
+### 伤害跳字
+
+`Assets/Prefabs/UI/BattleDamagePopup.prefab` 是伤害跳字的唯一视觉模板。根物体使用 3D `TextMeshPro` 和 `BattleShotResultPopup`，不包含 Canvas 或旧 `TextMesh`；字体显式引用 `Assets/Fonts/BattleDamagePopupFont.asset`。可以直接在 Prefab Inspector 调整 TMP 的字体、字号、字重、对齐、材质与根缩放，以及 MeshRenderer 的 Sorting Layer / Order。`BattleShotResultPopup` 上可调整 `Label`、`Hit Color`、`Grazing Color`、`Miss Color`、`World Offset`、`Rise Distance`、`Rise Duration` 和 `Hold Duration`；保持时长不得少于 2 秒。这些视觉值全部来自 Prefab，运行时不会覆盖字体、字号、材质或静态布局。
+
+Map1 的 GameManager 挂载 `BattleDamagePopupManager`，其 `View Prefab` 显式引用上述 Prefab；同一物体上的 `BattleSceneManager.damagePopups` 显式引用该管理器。场景初始化会在相机装配完成后把 `BattleCameraRig.OutputCamera` 交给管理器，并检查管理器已启用、Prefab/视图/TMP/字体引用有效、没有 Canvas/旧 `TextMesh` 且持续时间合法。项目不依赖运行时资源查找或 `BattleVisualAssetSetup` 补装这些引用。
+
+射击结果的数据流为 `ShootAbility.LastResult` → `BattlePlayerController.OnSelectedAbilityEnded` → `BattleDamagePopupManager.ShowShotResult` → `BattleShotResultPopup.Play`。管理器通过 `BattleUiText.ShotOutcome` 生成命中、擦伤或未命中文案；单实例视图使用 `ShootResult.TargetPosition + WorldOffset` 的结算快照定位，按当前输出相机朝向更新，使用 unscaled time 上浮并保持至少 2 秒。即使目标已因致死伤害销毁，跳字也不再读取目标 Transform。实例正常完成后，控制器收到一次完成通知并调用 `BattleCameraDirector.EndShot(true)`，将战术中心移回射击者。
+
+相机与文字的职责保持分离：`BattleCameraDirector` 只管理 Cinemachine 镜头状态，不创建、持有、取消或销毁跳字；`BattleDamagePopupManager` 只管理文字实例，不修改虚拟相机优先级。当前射击是低频串行流程，因此每次展示都直接 `Instantiate` 一个 Prefab，完成或取消后直接 `Destroy`，暂不使用对象池。管理器用活动集合跟踪实例，`Clear` / `Shutdown` 会幂等取消并清理全部实例，取消路径不会触发完成回调；战斗退出按“玩家控制器停止 → 跳字管理器清理 → 相机释放”的顺序执行，攻击者失效时也会清理活动跳字，避免迟到回调恢复已释放镜头。
+
 `InputSystem_Actions` 中新增 Battle/Point 与 Battle/Press，不启用模板 Player 动作来控制战斗。`BattleInputReader` 封装设备与手势，`BattlePlayerController` 负责选择、平面拾取和能力请求；UI 使用 InputSystemUIInputModule，仅接入 Point / Click。替换模型时保留 Prefab 根节点和逻辑组件，将模型子节点重新赋给 UnitVisualController。
 
 PlayMode 流程测试：`unity command "test run" --mode playmode --filter Wargame.PlayModeTests --filter_type assembly --async_tests`，启动后用 `unity command "test status"` 查询完成状态和结果。进入 PlayMode 会触发域重载，因此当前 Pipeline 版本不支持在同一个 HTTP 请求中同步等待 PlayMode 测试。测试覆盖 Prefab 出生、鼠标和触屏拖动、UI 取消、失焦、多指、表现中断、回合循环及射击目标选择与开火。

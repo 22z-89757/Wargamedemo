@@ -360,7 +360,9 @@ namespace Wargame.Battle
             if (!cancelled && ability is ShootAbility shoot && !string.IsNullOrEmpty(shoot.LastResult.TargetName))
             {
                 hud.ShowShotResult(shoot.LastResult);
-                scene.CameraDirector?.ShowResult(shoot.LastResult);
+                bool shown = scene.DamagePopups != null && scene.DamagePopups.ShowShotResult(shoot.LastResult,
+                    () => scene?.CameraDirector?.EndShot(true));
+                if (!shown) scene.CameraDirector?.EndShot(true);
             }
             else scene.CameraDirector?.EndShot();
             MarkDirty();

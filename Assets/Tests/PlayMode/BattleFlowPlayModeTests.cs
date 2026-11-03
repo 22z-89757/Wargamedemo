@@ -2,6 +2,7 @@ using System.Collections;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -124,6 +125,24 @@ namespace Wargame.Tests
         }
 
         [UnityTest]
+        public IEnumerator DamagePopupSceneUsesExplicitWorldSpaceTmpPrefab()
+        {
+            BattleDamagePopupManager manager = battle.DamagePopups;
+            Assert.That(manager, Is.Not.Null);
+            Assert.That(manager.IsInitialized, Is.True);
+            Assert.That(manager.ValidateConfiguration(out string error), Is.True, error);
+            BattleShotResultPopup prefab = manager.ViewPrefab;
+            Assert.That(prefab, Is.Not.Null);
+            Assert.That(prefab.Label, Is.TypeOf<TextMeshPro>());
+            Assert.That(prefab.Label.font, Is.Not.Null);
+            Assert.That(prefab.HoldDuration, Is.GreaterThanOrEqualTo(2f));
+            Assert.That(prefab.GetComponentInChildren<Canvas>(true), Is.Null);
+            Assert.That(prefab.GetComponentInChildren<TextMesh>(true), Is.Null);
+            Assert.That(GameObject.Find("BattleVisualAssetSetup"), Is.Null);
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator HealthBarFollowsActualTransformAndRemovesOnDeath()
         {
             Assert.That(battle.HealthBars.TryGetView(player, out var bar), Is.True);
@@ -131,7 +150,6 @@ namespace Wargame.Tests
             player.Attributes.SetBaseValue(AttributeType.Health, .1f);
             yield return SettleFrame();
             Assert.That(bar.FilledSegments, Is.EqualTo(1));
-            Vector3 start = player.transform.position;
             player.transform.position += Vector3.right * 2;
             yield return SettleFrame();
             Vector2 after = view.WorldToScreenPoint(player.transform.position + Vector3.up * battle.HealthBars.Settings.WorldOffset);
@@ -139,7 +157,7 @@ namespace Wargame.Tests
             player.Attributes.SetBaseValue(AttributeType.Health, 0);
             yield return SettleFrame();
             Assert.That(battle.HealthBars.TryGetView(player, out _), Is.False);
-            player.transform.position = start;
+            Assert.That(player == null, Is.True);
         }
 
         [UnityTest]
@@ -437,7 +455,7 @@ namespace Wargame.Tests
             Assert.That(hud.IsAbilityConfirmationVisible, Is.False);
             yield return ClickUi(hud.TargetButtons[0]);
             Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
-            Assert.That(hud.HitChanceText.text, Does.Contain("100%"));
+            Assert.That(hud.TargetButtons[0].GetComponentInChildren<Text>().text, Does.Contain("100%"));
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2f));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10f));
             Assert.That(hud.IsAbilityConfirmationVisible, Is.True);
@@ -459,7 +477,9 @@ namespace Wargame.Tests
             yield return WaitForActiveAction();
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1f));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(6f));
-            Assert.That(hud.ShotResultText.text, Does.Contain("命中"));
+            var popup = Object.FindFirstObjectByType<BattleShotResultPopup>();
+            Assert.That(popup, Is.Not.Null);
+            Assert.That(popup.Message, Does.Contain("命中"));
             float popupDeadline = Time.realtimeSinceStartup + 4f;
             while (Object.FindFirstObjectByType<BattleShotResultPopup>() != null &&
                    Time.realtimeSinceStartup < popupDeadline)
@@ -474,6 +494,57 @@ namespace Wargame.Tests
             Vector2 tacticalCenter = new Vector2(battle.CameraRig.ViewCenter.x, battle.CameraRig.ViewCenter.z);
             Vector2 shooterCenter = new Vector2(player.transform.position.x, player.transform.position.z);
             Assert.That(Vector2.Distance(tacticalCenter, shooterCenter), Is.LessThan(.02f));
+        }
+
+        [UnityTest]
+        public IEnumerator HitShotUsesTmpSnapshotAndKeepsShotCameraUntilPopupCompletes()
+        {
+            yield return VerifyShotPopupOutcome(false, false, new SequenceShootRandom(0f, .99f));
+        }
+
+        [UnityTest]
+        public IEnumerator GrazingShotUsesTmpSnapshotAndKeepsShotCameraUntilPopupCompletes()
+        {
+            yield return VerifyShotPopupOutcome(true, false, new SequenceShootRandom(0f, 0f));
+        }
+
+        [UnityTest]
+        public IEnumerator MissedShotUsesTmpSnapshotAndKeepsShotCameraUntilPopupCompletes()
+        {
+            yield return VerifyShotPopupOutcome(false, false, new SequenceShootRandom(0f), true);
+        }
+
+        [UnityTest]
+        public IEnumerator LethalShotKeepsTmpAtDestroyedTargetSnapshotUntilPopupCompletes()
+        {
+            yield return VerifyShotPopupOutcome(false, true, new SequenceShootRandom(0f, .99f));
+        }
+
+        [UnityTest]
+        public IEnumerator SceneExitClearsActiveTmpPopupWithoutLateCompletionCallback()
+        {
+            int completionCount = 0;
+            var result = new ShootResult(null, "SceneExitTarget", new Vector3(3f, 0f, 2f), true,
+                false, 4f, 3, 100f, Vector2Int.one);
+            Assert.That(battle.DamagePopups.ShowShotResult(result, () => completionCount++), Is.True);
+            BattleShotResultPopup popup = battle.DamagePopups
+                .GetComponentsInChildren<BattleShotResultPopup>().Single();
+            Assert.That(popup.Label, Is.TypeOf<TextMeshPro>());
+            Assert.That(popup.HoldDuration, Is.GreaterThanOrEqualTo(
+                BattleShotResultPopup.MinimumHoldDuration));
+
+            Scene battleScene = battle.gameObject.scene;
+            Scene cleanupScene = SceneManager.CreateScene("DamagePopupSceneExitCleanup");
+            Assert.That(SceneManager.SetActiveScene(cleanupScene), Is.True);
+            yield return SceneManager.UnloadSceneAsync(battleScene);
+
+            Assert.That(popup == null, Is.True);
+            Assert.That(Object.FindObjectsByType<BattleShotResultPopup>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None), Is.Empty);
+            yield return new WaitForSecondsRealtime(BattleShotResultPopup.MinimumHoldDuration + .2f);
+            Assert.That(completionCount, Is.Zero, "场景退出取消跳字后不得迟到执行完成回调。");
+            Assert.That(Object.FindObjectsByType<BattleShotResultPopup>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None), Is.Empty);
         }
 
         [UnityTest]
@@ -639,7 +710,7 @@ namespace Wargame.Tests
 
             enemy.Attributes.SetBaseValue(AttributeType.Defense, 15f);
             yield return SettleFrame();
-            Assert.That(hud.HitChanceText.text, Does.Contain("70%"));
+            Assert.That(hud.TargetButtons[0].GetComponentInChildren<Text>().text, Does.Contain("70%"));
 
             for (int y = 0; y < battle.Grid.Height; y++)
             {
@@ -713,11 +784,11 @@ namespace Wargame.Tests
             yield return RequestShoot(hud);
             hud.TargetButtons[0].onClick.Invoke();
             yield return SettleFrame();
-            Assert.That(hud.HitChanceText.text, Does.Contain("60%"));
+            Assert.That(hud.TargetButtons[0].GetComponentInChildren<Text>().text, Does.Contain("60%"));
             PlaceVisibleEnemyAtDistance(10);
             yield return SettleFrame();
             Assert.That(controller.SelectedShootTarget, Is.SameAs(enemy));
-            Assert.That(hud.HitChanceText.text, Does.Contain("50%"));
+            Assert.That(hud.TargetButtons[0].GetComponentInChildren<Text>().text, Does.Contain("50%"));
             hud.ConfirmButton.onClick.Invoke();
             yield return SettleFrame();
             Assert.That(ability.LastResult.Distance, Is.EqualTo(10));
@@ -739,15 +810,42 @@ namespace Wargame.Tests
             yield return RequestShoot(hud);
             Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
             yield return ClickUi(hud.TargetButtons[0]);
-            Assert.That(hud.HitChanceText.text, Does.Contain("0%"));
+            Assert.That(hud.TargetButtons[0].GetComponentInChildren<Text>().text, Does.Contain("0%"));
             Assert.That(hud.IsAbilityConfirmationVisible, Is.True);
             yield return ClickUi(hud.ConfirmButton);
             yield return WaitForActiveAction();
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(1));
             Assert.That(enemy.Attributes.GetValue(AttributeType.Health), Is.EqualTo(10));
-            Assert.That(hud.ShotResultText.text, Does.Contain("未命中"));
+            var popup = Object.FindFirstObjectByType<BattleShotResultPopup>();
+            Assert.That(popup, Is.Not.Null);
+            Assert.That(popup.Message, Does.Contain("未命中"));
             Assert.That(controller.SelectedShootTarget, Is.Null);
             Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator UnavailableDamagePopupManagerRestoresTacticalCameraWithoutLockingInput()
+        {
+            PlaceVisibleEnemyAtDistance(3);
+            player.Attributes.SetBaseValue(AttributeType.Aim, 100f);
+            yield return SettleFrame();
+            var hud = Object.FindFirstObjectByType<BattleHUD>();
+            yield return RequestShoot(hud);
+            yield return ClickUi(hud.TargetButtons[0]);
+            yield return ClickUi(hud.ConfirmButton);
+            Assert.That(battle.CameraDirector.IsShowingShot, Is.True);
+            battle.DamagePopups.Shutdown();
+
+            yield return WaitForActiveAction();
+            yield return SettleFrame();
+            Assert.That(battle.DamagePopups.ActiveCount, Is.Zero);
+            Assert.That(battle.CameraDirector.IsShowingShot, Is.False);
+            float deadline = Time.realtimeSinceStartup + 2f;
+            while (!battle.CameraRig.IsCameraSettled(battle.CameraRig.TacticalCamera) &&
+                   Time.realtimeSinceStartup < deadline)
+                yield return SettleFrame();
+            Assert.That(battle.CameraRig.IsCameraSettled(battle.CameraRig.TacticalCamera), Is.True);
+            Assert.That(battle.CanIssueOrders, Is.True);
         }
 
         private IEnumerator RequestShoot(BattleHUD hud)
@@ -757,6 +855,86 @@ namespace Wargame.Tests
             button.onClick.Invoke();
             yield return SettleFrame();
             Assert.That(hud.TargetPanel.gameObject.activeSelf, Is.True);
+        }
+
+        private IEnumerator VerifyShotPopupOutcome(bool grazing, bool lethal,
+            IShootRandomSource randomSource, bool miss = false)
+        {
+            Unit enemy = PlaceVisibleEnemyAtDistance(3);
+            player.Attributes.SetBaseValue(AttributeType.Aim, miss ? 0f : 100f);
+            enemy.Attributes.SetBaseValue(AttributeType.Defense, miss ? 100f : 0f);
+            enemy.Attributes.SetBaseValue(AttributeType.Dodge, grazing ? 100f : 0f);
+            enemy.Attributes.SetBaseValue(AttributeType.Armor, 0f);
+            enemy.Attributes.SetBaseValue(AttributeType.Health, lethal ? ShootRules.BaseDamage : 10f);
+            Vector3 targetSnapshot = enemy.transform.position;
+
+            ShootAbility previous = player.Abilities.GetAbility<ShootAbility>();
+            Assert.That(player.Abilities.Remove(previous), Is.True);
+            var ability = new ShootAbility(battle.Grid, new ShootSettings(),
+                player.GetComponent<UnitShootVisualController>(), randomSource);
+            Assert.That(player.Abilities.Grant(ability), Is.True);
+            yield return SettleFrame();
+
+            BattleHUD hud = Object.FindFirstObjectByType<BattleHUD>();
+            yield return RequestShoot(hud);
+            Assert.That(hud.VisibleTargetCount, Is.EqualTo(1));
+            yield return ClickUi(hud.TargetButtons[0]);
+            battle.CameraRig.Brain.DefaultBlend = new CinemachineBlendDefinition(
+                CinemachineBlendDefinition.Styles.EaseInOut, .05f);
+            yield return ClickUi(hud.ConfirmButton);
+            Assert.That(battle.CameraDirector.IsShowingShot, Is.True);
+
+            yield return WaitForActiveAction();
+            ShootResult result = ability.LastResult;
+            Assert.That(result.TargetPosition, Is.EqualTo(targetSnapshot));
+            Assert.That(result.Hit, Is.EqualTo(!miss));
+            Assert.That(result.Grazing, Is.EqualTo(grazing));
+            Assert.That(result.Damage, Is.EqualTo(miss ? 0f : grazing
+                ? ShootRules.GrazingDamage : ShootRules.BaseDamage));
+            if (lethal)
+            {
+                // Unit.Died uses Object.Destroy in PlayMode; Unity finalizes the object at frame end.
+                yield return null;
+                Assert.That(enemy == null, Is.True);
+            }
+
+            BattleShotResultPopup popup = battle.DamagePopups
+                .GetComponentsInChildren<BattleShotResultPopup>().Single();
+            float shownAt = Time.realtimeSinceStartup;
+            Assert.That(popup.Label, Is.TypeOf<TextMeshPro>());
+            Assert.That(popup.HoldDuration, Is.GreaterThanOrEqualTo(
+                BattleShotResultPopup.MinimumHoldDuration));
+            Assert.That(popup.Message, Does.Contain(miss ? "未命中" : grazing ? "擦伤" : "命中"));
+            Assert.That(popup.Label.color, Is.EqualTo(miss ? popup.MissColor : grazing
+                ? popup.GrazingColor : popup.HitColor));
+            Vector3 expectedOrigin = result.TargetPosition + Vector3.up * popup.WorldOffset;
+            Assert.That(popup.transform.position.x, Is.EqualTo(expectedOrigin.x).Within(.001f));
+            Assert.That(popup.transform.position.z, Is.EqualTo(expectedOrigin.z).Within(.001f));
+            Assert.That(popup.transform.position.y,
+                Is.InRange(expectedOrigin.y - .001f, expectedOrigin.y + popup.RiseDistance + .001f));
+            Assert.That(Quaternion.Angle(popup.transform.rotation, view.transform.rotation), Is.LessThan(.01f));
+            Assert.That(battle.CameraDirector.IsShowingShot, Is.True);
+
+            yield return new WaitForSecondsRealtime(1.5f);
+            Assert.That(popup != null, Is.True, "TMP 跳字显示未满两秒前不得销毁。");
+            Assert.That(battle.CameraDirector.IsShowingShot, Is.True,
+                "跳字播放期间必须保持玩家射击相机。");
+
+            float popupDeadline = shownAt + popup.HoldDuration + 1f;
+            while (popup != null && Time.realtimeSinceStartup < popupDeadline)
+                yield return SettleFrame();
+            Assert.That(popup == null, Is.True);
+            Assert.That(battle.DamagePopups.ActiveCount, Is.Zero);
+            Assert.That(battle.CameraDirector.IsShowingShot, Is.False);
+
+            float cameraDeadline = Time.realtimeSinceStartup + 2f;
+            while (!battle.CameraRig.IsCameraSettled(battle.CameraRig.TacticalCamera) &&
+                   Time.realtimeSinceStartup < cameraDeadline)
+                yield return SettleFrame();
+            Assert.That(battle.CameraRig.IsCameraSettled(battle.CameraRig.TacticalCamera), Is.True);
+            Vector2 tacticalCenter = new Vector2(battle.CameraRig.ViewCenter.x, battle.CameraRig.ViewCenter.z);
+            Vector2 shooterCenter = new Vector2(player.transform.position.x, player.transform.position.z);
+            Assert.That(Vector2.Distance(tacticalCenter, shooterCenter), Is.LessThan(.02f));
         }
 
         [UnityTest]
@@ -883,6 +1061,22 @@ namespace Wargame.Tests
             public float NextValue() => 0.55f;
         }
 
+        private sealed class SequenceShootRandom : IShootRandomSource
+        {
+            private readonly float[] values;
+            private int index;
+
+            public SequenceShootRandom(params float[] values) => this.values = values;
+
+            public float NextValue()
+            {
+                Assert.That(values, Is.Not.Empty);
+                float value = values[Mathf.Min(index, values.Length - 1)];
+                index++;
+                return value;
+            }
+        }
+
         [UnityTest]
         public IEnumerator LethalShotRemovesTargetFromGridTurnAndTargetList()
         {
@@ -908,7 +1102,7 @@ namespace Wargame.Tests
             hud.ConfirmButton.onClick.Invoke();
             yield return WaitForActiveAction();
 
-            Assert.That(enemy.IsAlive, Is.False);
+            Assert.That(enemy == null, Is.True, "致死射击应通过 Unit.Died 处理器销毁目标对象。");
             Assert.That(battle.Grid.TryGetUnitCoordinates(enemy, out _), Is.False);
             Assert.That(battle.Turns.Units.Contains(enemy), Is.False);
             Assert.That(controller.SelectedShootTarget, Is.Null);
@@ -1053,6 +1247,7 @@ namespace Wargame.Tests
             Assert.That(battle.Grid.TryGetUnitCoordinates(player, out _), Is.False);
             Assert.That(battle.Turns.Units.Contains(player), Is.False);
             yield return SettleFrame();
+            Assert.That(player == null, Is.True, "死亡事件应在完成棋盘与回合清理后销毁 Unit GameObject。");
         }
 
         private IEnumerator PlaceCameraAndPlayerInInterior()
