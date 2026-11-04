@@ -100,6 +100,7 @@ namespace Wargame.Units
             committedPlan = plan;
             if (!grid.TryMoveUnit(Owner, plan.Destination))
             { committedPlan = null; reason = AbilityFailReason.InvalidTarget; return false; }
+            Owner.Buffs.RemoveById(CrouchBuff.Id);
             CommitCost(plan.ActionPointCost);
             return true;
         }

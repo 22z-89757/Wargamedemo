@@ -208,6 +208,8 @@ namespace Wargame.Battle
                 unit.Abilities.Grant(new MoveAbility(grid, unit.GetComponent<UnitMovementVisual>()));
                 unit.Abilities.Grant(new ShootAbility(grid, gameSettings.ShootSettings,
                     unit.GetComponent<UnitShootVisualController>()));
+                if (faction == Faction.Player)
+                    unit.Abilities.Grant(new DefendAbility());
                 unit.Died += HandleUnitDied;
                 unit.Destroyed += ReleaseUnit;
                 unit.Attributes.AttributeChanged += OnUnitAttributeChanged;
