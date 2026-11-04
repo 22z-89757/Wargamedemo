@@ -29,6 +29,7 @@ namespace Wargame.Battle
                     return false;
                 }
             }
+
             return true;
         }
 

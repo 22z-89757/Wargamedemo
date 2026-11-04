@@ -108,6 +108,7 @@ GameObject:
   - component: {fileID: 3143171678618289161}
   - component: {fileID: 633056994076441667}
   - component: {fileID: 307487707819409082}
+  - component: {fileID: 910000000000000001}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -115,6 +116,18 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &910000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2657274638920092675}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4538265d571b7b94cbb9c4c5a318c417, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Wargame.Runtime::Wargame.Units.UnitCoverController
 --- !u!4 &2556417655399960251
 Transform:
   m_ObjectHideFlags: 0

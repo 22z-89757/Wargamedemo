@@ -57,17 +57,21 @@ bool visible = GridLineOfSight.HasLineOfSight(lineOfSightMap,
 
 射击先检查攻击者当前格中心到目标当前格四顶点的 LOS；被阻挡时，再按下、右、上、左的固定顺序从 4 个正交相邻格尝试同样的四顶点查询，最多形成 20 条候选射线，任一畅通即可探头射击。对角相邻格不作为候选。越界或 `FullBlocked` 的相邻格不能作为起点；半障碍和单位占用不影响候选。双方逻辑坐标、占格与 Transform 均不因探头改变，SightRange、命中率和结果距离仍按双方实际格距计算。每条候选继续使用通用 LOS 的中途格角保守规则，接触目标格边界即成功；开火时重新检查，所有候选被封锁后拒绝射击且不扣 AP。
 
-`Assets/Data/Game/GameSettings.asset` 是默认配置，`Map1` 的 BattleSceneManager 通过 `gameSettings` 字段显式引用；可用 Create → Wargame → Game Settings 创建其他资产并替换场景引用。配置类位于 `Battle/Data`：GameSettings 是 ScriptableObject，其 `ShootSettings` 字段内嵌 `[Serializable] ShootSettings`，不是另一个 SO。`DistanceHitChanceModifier` 为 AnimationCurve，X 是递增非负整数格距，Y 是命中率修正百分点。Inspector 校验将切线统一为 Constant、首尾保持端点，运行时能力创建独立只读快照，不修改资产；配置调整在下一次初始化生效。缺失或非法配置会明确报告错误，不做隐式资源查找或回退。
+每个战斗 Unit Prefab 根节点都挂载 `UnitCoverController`；`BattleSceneManager` 在占格登记成功后显式注入当前 `GridManager` 和配置化 `ICoverBuffFactory`。控制器只监听棋盘变化，把当前格北、东、南、西四边同步成永久环境 `CoverBuff`；工厂负责把不可变掩体配置固化到新 Buff。同方向等级变化执行替换，不同方向可并存；离棋、死亡、禁用或销毁时清理。CoverBuff 不修改 Defense、通行、LOS 或射程，也不随回合自然到期。
 
-默认阶梯为 0–4 格 +20、5–9 格 +10、10–14 格 0、15–19 格 −10、20 格及以上 −20 个百分点，10 格为零修正基准。节点间不插值，到达节点立即采用新值。曲线只修正概率，不是射程上限。最终命中率为 `clamp(Aim - Defense + 距离修正, 0, 100)`；Aim 70、Defense 20 时，5/10/15 格依次为 60%/50%/40%。0% 的可见敌人仍可选择和开火，结算必定未命中。
+射击先构造不含探头 `FiringOrigin` 的 `HitChanceContext`，其中来向掩码只按攻击者与目标的实际占格计算。目标活动 Buff 中实现 `IHitChanceModifierSource` 的实例根据该只读上下文提供候选；CoverBuff 只在自身方向面对来袭时提供负修正，并把候选放入 `cover` 互斥组。无状态 `HitChanceModifierResolver` 保留独立项、对同组采用最强减值，因此正交方向读取一边、斜向只采用相邻两边的较高掩体，反方向无效。该规则只修改命中率，不改变射程和 LOS 合法性，因此最终概率降至 0% 时目标仍可选中并正常消耗 AP 射击。
 
-射击消耗 1 AP；命中后按 `clamp(Dodge, 0, 100)` 判定擦伤，普通伤害为 4、擦伤为 2，最终伤害为 `max(0, 基础伤害 - Armor)` 并从 Health 扣除。Dodge 不从 UI 命中率再次扣减。Health 归零仍由 `Unit.Died` 触发占格移除、回合注销和列表刷新。`ShootResult.Distance` 与 `HitChance` 记录成功提交时的距离、最终概率，不随后续移动或属性变化重算。
+`Assets/Data/Game/GameSettings.asset` 是默认配置，`Map1` 的 BattleSceneManager 通过 `gameSettings` 字段显式引用；可用 Create → Wargame → Game Settings 创建其他资产并替换场景引用。配置类位于 `Battle/Data`：GameSettings 是 ScriptableObject，其内嵌的 `[Serializable] ShootSettings` 只保存距离曲线，`CoverEffectSettings` 保存掩体效果，两者都不是独立 SO。`DistanceHitChanceModifier` 为 AnimationCurve，X 是递增非负整数格距，Y 是命中率修正百分点；半掩体和全掩体命中减值默认分别为 20、40 个百分点，必须为有限非负值且全掩体不低于半掩体。Inspector 校验将曲线切线统一为 Constant、首尾保持端点；运行时分别创建距离与掩体的独立只读快照，后者由工厂写入 CoverBuff，不修改资产。配置调整在下一次战斗初始化生效；缺失或非法配置会明确报告错误，不做隐式资源查找或回退。
+
+默认阶梯为 0–4 格 +20、5–9 格 +10、10–14 格 0、15–19 格 −10、20 格及以上 −20 个百分点，10 格为零修正基准。节点间不插值，到达节点立即采用新值。曲线只修正概率，不是射程上限。`ShootAbility` 通过统一的不可变 `ShotEvaluation` 收集基础属性、距离、射线起点、Resolver 输出和 Breakdown；预览直接投影该结果，提交在随机准备后重新求值并结构化比较，不按公式字符串判断变化。先得到基础值 `clamp(Aim - Defense + 距离修正, 0, 100)`，再顺序应用具名修正项并把最终值钳制到 0–100；Aim 70、Defense 20 且无掩体时，5/10/15 格依次为 60%/50%/40%。`HitChanceBreakdown` 保存基础值、有序只读修正项和最终值，预览、确认提交与结果共用该结构；0% 的可见敌人仍可选择和开火，结算必定未命中。
+
+射击消耗 1 AP；命中后按 `clamp(Dodge, 0, 100)` 判定擦伤，普通伤害为 4、擦伤为 2，最终伤害为 `max(0, 基础伤害 - Armor)` 并从 Health 扣除。Dodge 不从 UI 命中率再次扣减。Health 归零仍由 `Unit.Died` 触发占格移除、回合注销和列表刷新。`ShootResult.Distance` 与 `Breakdown` 记录成功提交时的距离、基础值、修正项及最终概率，不随后续移动、属性或掩体变化重算。
 
 射击确认成功后 `BattleCameraDirector` 先切换到玩家射击相机；UnitShootVisualController 等待 Cinemachine Brain 确认该相机已完全接管画面后，才开始探身、转向、发射子弹和结算。该相机 Follow 当前 Unit 根节点，因此会跟随探头和归位表现，不引用初始位置快照。子弹到达并结算后，目标上方显示命中、擦伤、未命中及伤害文本，按非缩放时间完整展示 2 秒；期间保持射击镜头，随后清除敌人聚焦并平滑返回以射击者为中心的战术镜头。射击结果保存目标名称与结算时世界坐标，目标因致死伤害移除时仍可完成提示；场景关闭或攻击者失效会清理镜头和提示。
 
 ```csharp
 ShootAbility shoot = unit.Abilities.GetAbility<ShootAbility>();
-ShootPreview preview = shoot.GetPreview(enemy); // 只读快照，包含距离、最终命中率和目标剩余生命。
+ShootPreview preview = shoot.GetPreview(enemy); // 只读快照，包含距离、命中率 Breakdown 和目标剩余生命。
 bool fired = unit.Abilities.TryActivate(shoot, AbilityTarget.ForUnit(enemy), out var reason);
 if (fired) Debug.Log($"Distance={shoot.LastResult.Distance}, Chance={shoot.LastResult.HitChance}, Hit={shoot.LastResult.Hit}, Damage={shoot.LastResult.Damage}");
 ```
@@ -172,6 +176,8 @@ PC 仅使用鼠标左键，Android 使用主触点：从玩家单位按下，拖
 交互 Canvas 的安全区域下预置 `AbilityDic`（`VerticalLayoutGroup` 和独立的 `AbilityButtonTemplate`），所有动态能力按钮只生成在此容器中；移动能力不出现在列表，仍使用棋盘拖拽。`TargetPanel`、目标行模板、空状态和 `ActionConfirmDialog`（提示文本、通用确认/取消按钮）均在 Inspector 配置，不运行时补建。目标面板默认隐藏，仅请求现有 Unit 目标射击能力时开启；不扩展 Cell 目标能力。
 
 能力入口通过能力系统的只读 `CanPrepareTarget` 检查授予、回合、独占、标签、冷却、次数及费用；准备不会扣 AP。None/Self 能力点击后直接重新校验并激活；射击按钮打开目标列表，目标行点击仅选中目标、显示预览并打开共享确认窗，确认时重新读取当前条件并且只调用一次 `TryActivate`。取消确认返回列表并保留仍合法目标；成功后清空待用能力、关闭列表。AP 不足不会隐藏已打开列表中的可见目标，0% 命中率目标仍可选。目标失效关闭旧确认，单位/能力/回合失效清空操作会话。
+
+射击目标行、侧边预览和结果提示只显示 `Breakdown.FinalChance`；共享 `ActionConfirmDialog` 的射击确认文案通过 `BattleUiText.HitChanceFormula` 遍历同一预览中的有序具名修正项，显示“命中率 = 基础命中率 … ± 修正项 … = 最终值”。formatter 不读取棋盘、CoverBuff、属性或距离，也不识别掩体业务类型；新增命中修正项只需进入 Breakdown 即可显示。确认弹窗打开期间若棋盘、掩体或属性变化，控制器重新取得最新预览并更新公式；最终提交仍由 `ShootAbility` 再次结算。公式复用现有确认文案 Text，因此 Map1 不增加新的序列化控件引用，Canvas 分层与输入阻挡行为保持不变。
 
 切换单位、取消选择或再次点击同一单位均立即清空待用能力和目标并关闭目标面板与能力确认窗。能力确认期间冻结移动、平移、边缘滚动、旋转和其它执行操作，但允许点击己方单位重新选择；这次按下只刷新选择，不能同时启动移动手势。结束回合确认期间单位选择也冻结。
 

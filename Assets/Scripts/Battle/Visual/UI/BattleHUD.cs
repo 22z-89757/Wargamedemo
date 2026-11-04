@@ -153,6 +153,12 @@ namespace Wargame.Battle
             if (IsAbilityConfirmationVisible) CloseConfirmation();
         }
 
+        public void UpdateAbilityConfirmation(string message)
+        {
+            if (IsAbilityConfirmationVisible && endTurnWarningText != null)
+                endTurnWarningText.text = message ?? string.Empty;
+        }
+
         private void CloseConfirmation()
         {
             bool wasEndTurn = IsEndTurnConfirmationVisible;

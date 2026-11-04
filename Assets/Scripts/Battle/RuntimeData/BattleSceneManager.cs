@@ -34,6 +34,7 @@ namespace Wargame.Battle
         [SerializeField] private List<UnitSpawnEntry> enemySpawns = new List<UnitSpawnEntry>();
         private readonly List<Unit> spawned = new List<Unit>();
         private BattleCameraDirector cameraDirector;
+        private ICoverBuffFactory coverBuffFactory;
         private bool initializing, cleaning;
         private int skipEnemyAfterFrame = -1;
         public event Action Changed;
@@ -114,6 +115,8 @@ namespace Wargame.Battle
             initializing = true;
             try
             {
+                coverBuffFactory = new ConfiguredCoverBuffFactory(
+                    gameSettings.CoverEffectSettings.CreateSnapshot());
                 Spawn(playerSpawns, Faction.Player);
                 Spawn(enemySpawns, Faction.Enemy);
                 cameraRig.Initialize(grid, grid.GridToWorld(playerSpawns[0].Coordinates), playerController);
@@ -140,7 +143,8 @@ namespace Wargame.Battle
             finally { initializing = false; }
         }
 
-        private bool Validate(List<UnitSpawnEntry> entries, Faction faction, HashSet<Vector2Int> occupied, out string error)
+        private bool Validate(List<UnitSpawnEntry> entries, Faction faction,
+            HashSet<Vector2Int> occupied, out string error)
         {
             error = null;
             if (entries == null) { error = "出生列表不能为 null。"; return false; }
@@ -150,14 +154,17 @@ namespace Wargame.Battle
                     ? entry.Prefab.GetComponent<UnitShootVisualController>() : null;
                 UnitBattleCameraSet cameraSet = entry?.Prefab != null
                     ? entry.Prefab.GetComponent<UnitBattleCameraSet>() : null;
+                UnitCoverController coverController = entry?.Prefab != null
+                    ? entry.Prefab.GetComponent<UnitCoverController>() : null;
                 string visualError = null;
                 if (entry == null || entry.Prefab == null || !entry.Prefab.gameObject.activeSelf ||
                     entry.Prefab.GetComponent<UnitMovementVisual>() == null ||
                     !entry.Prefab.GetComponent<UnitMovementVisual>().enabled ||
+                    coverController == null || !coverController.enabled ||
                     shootVisual == null || !shootVisual.enabled || !shootVisual.ValidateConfiguration(out visualError) ||
                     entry.Prefab.GetComponentInChildren<Collider>() == null)
                 {
-                    error = "每项需要激活的 Unit Prefab、UnitMovementVisual、有效 UnitShootVisualController 和拾取 Collider。" +
+                    error = "每项需要激活的 Unit Prefab、UnitMovementVisual、UnitCoverController、有效 UnitShootVisualController 和拾取 Collider。" +
                         (string.IsNullOrEmpty(visualError) ? string.Empty : " " + visualError);
                     return false;
                 }
@@ -184,6 +191,7 @@ namespace Wargame.Battle
                 unit.Faction = faction;
                 spawned.Add(unit);
                 if (!grid.TryPlaceUnit(unit, entry.Coordinates)) throw new InvalidOperationException("出生格登记失败。");
+                unit.GetComponent<UnitCoverController>().Initialize(grid, coverBuffFactory);
                 turns.RegisterUnit(unit);
                 if (faction == Faction.Player)
                 {
@@ -285,6 +293,7 @@ namespace Wargame.Battle
                 if (Application.isPlaying) Destroy(unit.gameObject); else DestroyImmediate(unit.gameObject);
             }
             spawned.Clear();
+            coverBuffFactory = null;
             IsInitialized = false;
             cleaning = false;
         }

@@ -66,6 +66,20 @@ namespace Wargame.Battle
         public static string SelectTarget => "请选择目标";
         public static string HitChance(float chance) => $"命中率 {chance:0}%";
 
+        /// <summary>在确认界面按顺序渲染任意具名命中率修正，不识别具体业务类型。</summary>
+        public static string HitChanceFormula(HitChanceBreakdown breakdown)
+        {
+            if (breakdown == null) return string.Empty;
+            string text = $"命中率 = 基础命中率 {breakdown.BaseChance:0.#}%";
+            foreach (HitChanceModifier modifier in breakdown.Modifiers)
+            {
+                if (Math.Abs(modifier.Value) < 0.0001f) continue;
+                string sign = modifier.Value < 0f ? " - " : " + ";
+                text += $"{sign}{modifier.DisplayName} {Math.Abs(modifier.Value):0.#}%";
+            }
+            return $"{text} = {breakdown.FinalChance:0.#}%";
+        }
+
         private static bool ContainsCjk(string value)
         {
             foreach (char character in value)

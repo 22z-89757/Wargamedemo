@@ -77,7 +77,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f9dfa5b682dcd46bda6128250e975f58, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineCamera
   Priority:
     Enabled: 1
@@ -539,6 +539,7 @@ GameObject:
   - component: {fileID: 4234307940168336845}
   - component: {fileID: 7646190552907316449}
   - component: {fileID: 7166065509977586228}
+  - component: {fileID: 910000000000000002}
   m_Layer: 0
   m_Name: Enemy
   m_TagString: Untagged
@@ -546,6 +547,18 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &910000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7057515488979485507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4538265d571b7b94cbb9c4c5a318c417, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Wargame.Runtime::Wargame.Units.UnitCoverController
 --- !u!4 &6240189775701483294
 Transform:
   m_ObjectHideFlags: 0

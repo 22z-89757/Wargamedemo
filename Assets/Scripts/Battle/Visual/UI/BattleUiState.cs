@@ -54,7 +54,7 @@ namespace Wargame.Battle
             DisplayName = preview.TargetName ?? string.Empty;
             Health = preview.TargetHealth;
             Distance = preview.Distance;
-            HitChance = preview.HitChance;
+            Breakdown = preview.Breakdown;
             IsAvailable = preview.IsAvailable;
             CanFire = preview.CanFire;
             FailureReason = preview.FailureReason;
@@ -64,7 +64,8 @@ namespace Wargame.Battle
         public string DisplayName { get; }
         public float Health { get; }
         public int Distance { get; }
-        public float HitChance { get; }
+        public HitChanceBreakdown Breakdown { get; }
+        public float HitChance => Breakdown?.FinalChance ?? 0f;
         public bool IsAvailable { get; }
         public bool CanFire { get; }
         public AbilityFailReason FailureReason { get; }

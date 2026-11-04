@@ -6,6 +6,7 @@ namespace Wargame.Battle
     public sealed class GameSettings : ScriptableObject
     {
         public ShootSettings ShootSettings = new ShootSettings();
+        public CoverEffectSettings CoverEffectSettings = new CoverEffectSettings();
 
         public bool TryValidate(out string error)
         {
@@ -14,7 +15,13 @@ namespace Wargame.Battle
                 error = "GameSettings 缺少 ShootSettings。";
                 return false;
             }
-            return ShootSettings.TryValidate(out error);
+            if (!ShootSettings.TryValidate(out error)) return false;
+            if (CoverEffectSettings == null)
+            {
+                error = "GameSettings 缺少 CoverEffectSettings。";
+                return false;
+            }
+            return CoverEffectSettings.TryValidate(out error);
         }
 
         private void OnValidate() => ShootSettings?.NormalizeCurve();

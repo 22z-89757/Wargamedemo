@@ -5,7 +5,10 @@ using Wargame.GridSystem;
 
 namespace Wargame.Units
 {
-    /// <summary>对已登记在棋盘上的敌方单位执行一次基于 LOS 的射击。</summary>
+    /// <summary>
+    /// 对已登记在棋盘上的敌方单位执行一次基于 LOS 的射击；方向性掩体只修正命中率，
+    /// 来向始终使用双方实际占格，不使用探头射线起点。
+    /// </summary>
     public sealed class ShootAbility : AbilityBase
     {
         private static readonly Vector2Int[] ShootLineOffsets =
@@ -20,7 +23,8 @@ namespace Wargame.Units
         private readonly ShootSettings.Snapshot settings;
         private readonly IUnitShootVisual visual;
         private bool pendingHit, pendingGrazing, damageApplied;
-        private float pendingDamage, pendingHitChance;
+        private float pendingDamage;
+        private HitChanceBreakdown pendingBreakdown;
         private int pendingDistance;
         private Vector2Int pendingFiringOrigin;
         private Unit pendingTarget;
@@ -42,13 +46,11 @@ namespace Wargame.Units
             DisplayName = "射击";
         }
 
-        public override bool IsValidTarget(AbilityTarget target) => TryReadValidTarget(target, out _, out _);
+        public override bool IsValidTarget(AbilityTarget target) => TryEvaluateShot(target, out _);
 
-        private bool TryReadValidTarget(AbilityTarget target, out ShotParameters parameters,
-            out Vector2Int firingOrigin)
+        private bool TryEvaluateShot(AbilityTarget target, out ShotEvaluation evaluation)
         {
-            parameters = default;
-            firingOrigin = default;
+            evaluation = default;
             if (!base.IsValidTarget(target) || Owner == null || !Owner.IsAlive ||
                 Owner.Faction == Faction.Neutral || target.Unit.Faction == Faction.Neutral ||
                 target.Unit.Faction == Owner.Faction || !Owner.Attributes.HasAttribute(AttributeType.Aim) ||
@@ -61,8 +63,18 @@ namespace Wargame.Units
                 !grid.TryGetUnitCoordinates(Owner, out Vector2Int from) ||
                 !grid.TryGetUnitCoordinates(target.Unit, out Vector2Int to))
                 return false;
-            parameters = new ShotParameters(from, to, Owner, target.Unit);
-            return ShootRules.GetDistance(from, to) <= sightRange && TryGetFiringOrigin(from, to, out firingOrigin);
+            int distance = ShootRules.GetDistance(from, to);
+            if (distance > sightRange || !TryGetFiringOrigin(from, to, out Vector2Int firingOrigin))
+                return false;
+
+            var parameters = new ShotParameters(from, to, Owner, target.Unit);
+            var context = new HitChanceContext(Owner, target.Unit, from, to, AttackKind.Ranged);
+            System.Collections.Generic.IReadOnlyList<HitChanceModifier> modifiers =
+                HitChanceModifierResolver.Resolve(in context, target.Unit.Buffs.Buffs);
+            HitChanceBreakdown breakdown = ShootRules.GetHitChanceBreakdown(parameters.Aim,
+                parameters.Defense, settings.GetHitChanceModifier(distance), modifiers);
+            evaluation = new ShotEvaluation(parameters, distance, firingOrigin, breakdown);
+            return true;
         }
 
         internal bool TryGetFiringOrigin(Vector2Int from, Vector2Int to, out Vector2Int firingOrigin)
@@ -87,19 +99,20 @@ namespace Wargame.Units
             LastResult = default;
             try
             {
-                if (!TryReadValidTarget(target, out ShotParameters parameters, out Vector2Int firingOrigin))
+                if (!TryEvaluateShot(target, out ShotEvaluation evaluation))
                 { reason = AbilityFailReason.InvalidTarget; return false; }
                 pendingTarget = target.Unit;
-                pendingFiringOrigin = firingOrigin;
-                pendingDistance = ShootRules.GetDistance(parameters.From, parameters.To);
-                pendingHitChance = ShootRules.GetHitChance(parameters.Aim, parameters.Defense,
-                    settings.GetHitChanceModifier(pendingDistance));
-                pendingHit = NextRandomValue() * 100f < pendingHitChance;
+                pendingFiringOrigin = evaluation.FiringOrigin;
+                pendingDistance = evaluation.Distance;
+                pendingBreakdown = evaluation.Breakdown;
+                pendingHit = NextRandomValue() * 100f < pendingBreakdown.FinalChance;
                 if (pendingHit)
                 {
-                    pendingGrazing = NextRandomValue() * 100f < ShootRules.GetDodgeChance(parameters.Dodge);
+                    pendingGrazing = NextRandomValue() * 100f <
+                        ShootRules.GetDodgeChance(evaluation.Parameters.Dodge);
                     pendingDamage = ShootRules.GetDamage(
-                        pendingGrazing ? ShootRules.GrazingDamage : ShootRules.BaseDamage, parameters.Armor);
+                        pendingGrazing ? ShootRules.GrazingDamage : ShootRules.BaseDamage,
+                        evaluation.Parameters.Armor);
                 }
 
                 if (!IsActive || Component == null || Owner == null)
@@ -107,8 +120,7 @@ namespace Wargame.Units
                 if (!Owner.IsTurnActive && !CanActivateOutOfTurn)
                 { reason = AbilityFailReason.NotYourTurn; ResetPending(); return false; }
                 if (!CanActivate(target, out reason)) { ResetPending(); return false; }
-                if (!TryReadValidTarget(target, out ShotParameters current, out Vector2Int currentOrigin) ||
-                    !parameters.Equals(current) || currentOrigin != pendingFiringOrigin)
+                if (!TryEvaluateShot(target, out ShotEvaluation current) || !evaluation.Equals(current))
                 { reason = AbilityFailReason.Custom; ResetPending(); return false; }
             }
             catch
@@ -125,14 +137,13 @@ namespace Wargame.Units
             AbilityTarget abilityTarget = AbilityTarget.ForUnit(target);
             AbilityFailReason reason = AbilityFailReason.NotGranted;
             bool canFire = Component != null && Component.CanActivate(this, abilityTarget, out reason);
-            bool validTarget = TryReadValidTarget(abilityTarget, out ShotParameters parameters,
-                out Vector2Int firingOrigin);
+            bool validTarget = TryEvaluateShot(abilityTarget, out ShotEvaluation evaluation);
             if (!validTarget && reason == AbilityFailReason.None) reason = AbilityFailReason.InvalidTarget;
-            int distance = validTarget ? ShootRules.GetDistance(parameters.From, parameters.To) : 0;
-            float hitChance = validTarget
-                ? ShootRules.GetHitChance(parameters.Aim, parameters.Defense, settings.GetHitChanceModifier(distance))
-                : 0f;
-            return new ShootPreview(target, distance, hitChance, firingOrigin, validTarget, canFire, reason);
+            return new ShootPreview(target,
+                validTarget ? evaluation.Distance : 0,
+                validTarget ? evaluation.Breakdown : ShootRules.GetHitChanceBreakdown(0f, 0f, 0f),
+                validTarget ? evaluation.FiringOrigin : default,
+                validTarget, canFire, reason);
         }
 
         protected override void OnActivate(AbilityTarget target)
@@ -170,13 +181,14 @@ namespace Wargame.Units
             if (pendingHit && target.IsAlive)
                 target.Attributes.ApplyBaseDelta(AttributeType.Health, -pendingDamage);
             LastResult = new ShootResult(target, targetName, targetPosition, pendingHit, pendingGrazing,
-                pendingDamage, pendingDistance, pendingHitChance, pendingFiringOrigin);
+                pendingDamage, pendingDistance, pendingBreakdown, pendingFiringOrigin);
         }
 
         private void ResetPending()
         {
             pendingHit = pendingGrazing = damageApplied = false;
-            pendingDamage = pendingHitChance = 0f;
+            pendingDamage = 0f;
+            pendingBreakdown = null;
             pendingDistance = 0;
             pendingFiringOrigin = default;
             pendingTarget = null;
@@ -184,11 +196,13 @@ namespace Wargame.Units
 
         private readonly struct ShotParameters : IEquatable<ShotParameters>
         {
+            public readonly Unit Owner, Target;
             public readonly Vector2Int From, To;
             public readonly float SightRange, Aim, Defense, Dodge, Armor, TargetHealth, ActionPoints;
 
             public ShotParameters(Vector2Int from, Vector2Int to, Unit owner, Unit target)
             {
+                Owner = owner; Target = target;
                 From = from; To = to;
                 SightRange = owner.Attributes.GetValue(AttributeType.SightRange);
                 Aim = owner.Attributes.GetValue(AttributeType.Aim);
@@ -199,10 +213,32 @@ namespace Wargame.Units
                 ActionPoints = owner.Attributes.GetValue(AttributeType.ActionPoints);
             }
 
-            public bool Equals(ShotParameters other) => From == other.From && To == other.To &&
+            public bool Equals(ShotParameters other) => Owner == other.Owner && Target == other.Target &&
+                From == other.From && To == other.To &&
                 SightRange == other.SightRange && Aim == other.Aim && Defense == other.Defense &&
                 Dodge == other.Dodge && Armor == other.Armor && TargetHealth == other.TargetHealth &&
                 ActionPoints == other.ActionPoints;
+        }
+
+        private readonly struct ShotEvaluation : IEquatable<ShotEvaluation>
+        {
+            public ShotEvaluation(ShotParameters parameters, int distance,
+                Vector2Int firingOrigin, HitChanceBreakdown breakdown)
+            {
+                Parameters = parameters;
+                Distance = distance;
+                FiringOrigin = firingOrigin;
+                Breakdown = breakdown ?? throw new ArgumentNullException(nameof(breakdown));
+            }
+
+            public ShotParameters Parameters { get; }
+            public int Distance { get; }
+            public Vector2Int FiringOrigin { get; }
+            public HitChanceBreakdown Breakdown { get; }
+
+            public bool Equals(ShotEvaluation other) => Parameters.Equals(other.Parameters) &&
+                Distance == other.Distance && FiringOrigin == other.FiringOrigin &&
+                Breakdown.StructurallyEquals(other.Breakdown);
         }
 
         private float NextRandomValue()

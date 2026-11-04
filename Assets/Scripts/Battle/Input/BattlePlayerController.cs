@@ -305,6 +305,10 @@ namespace Wargame.Battle
                 hud.CloseAbilityConfirmation();
                 MarkDirty();
             }
+            else if (confirmationPending && selectedShootPreview.HasValue)
+            {
+                hud.UpdateAbilityConfirmation(BuildShootConfirmation(selectedShootPreview.Value));
+            }
             targetDirty = true;
         }
 
@@ -321,10 +325,14 @@ namespace Wargame.Battle
                 scene.CameraDirector?.FocusTarget(target);
                 targetDirty = true;
                 confirmationPending = true;
-                hud.ShowAbilityConfirmation($"确认让{selected.DisplayName}使用{BattleUiText.AbilityName(pendingAbility)}？\n目标：{preview.TargetName}，{BattleUiText.HitChance(preview.HitChance)}");
+                hud.ShowAbilityConfirmation(BuildShootConfirmation(preview));
                 return;
             }
         }
+
+        private string BuildShootConfirmation(ShootPreview preview) =>
+            $"确认让{selected.DisplayName}使用{BattleUiText.AbilityName(pendingAbility)}？\n" +
+            $"目标：{preview.TargetName}\n{BattleUiText.HitChanceFormula(preview.Breakdown)}";
 
         private void OnAbilityConfirmed()
         {
