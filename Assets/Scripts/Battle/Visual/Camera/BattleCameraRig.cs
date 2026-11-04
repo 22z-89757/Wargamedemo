@@ -40,8 +40,8 @@ namespace Wargame.Battle
         public event Action ViewChanged;
         public event Action RotationCompleted;
 
-        public bool IsCameraSettled(CinemachineCamera camera) => brain != null && camera != null &&
-            !brain.IsBlending && brain.ActiveVirtualCamera == camera;
+        public bool IsCameraSettled(CinemachineCamera _camera) => brain != null && _camera != null &&
+            !brain.IsBlending && ReferenceEquals(brain.ActiveVirtualCamera, _camera);
 
         public void FocusTacticalAt(Vector3 worldPosition)
         {

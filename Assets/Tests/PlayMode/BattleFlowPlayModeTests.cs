@@ -379,21 +379,110 @@ namespace Wargame.Tests
             Assert.That(battle.Grid.TryGetUnitCoordinates(player, out var coordinate), Is.True);
             Assert.That(coordinate, Is.EqualTo(Vector2Int.one));
             Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
-            Assert.That(enemy.Abilities.GetAbility<MoveAbility>(), Is.Null);
+            Assert.That(enemy.Abilities.GetAbility<MoveAbility>(), Is.Not.Null);
             Assert.That(player.Abilities.GetAbility<ShootAbility>(), Is.Not.Null);
-            Assert.That(enemy.Abilities.GetAbility<ShootAbility>(), Is.Null);
+            Assert.That(enemy.Abilities.GetAbility<ShootAbility>(), Is.Not.Null);
             Assert.That(battle.Grid.TryGetUnitCoordinates(enemy, out coordinate), Is.True);
-            Assert.That(coordinate, Is.EqualTo(new Vector2Int(18,18)));
+            Assert.That(coordinate, Is.EqualTo(new Vector2Int(17,11)));
+            Vector2Int enemyStart = coordinate;
             foreach (Unit unit in battle.SpawnedUnits.Where(u => u != null && u.Faction == Faction.Player))
                 unit.Attributes.SetBaseValue(AttributeType.ActionPoints, 0);
             Assert.That(battle.Turns.RoundNumber, Is.EqualTo(1));
             Object.FindFirstObjectByType<BattleHUD>().EndTurnButton.onClick.Invoke();
             Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(Faction.Enemy));
+            Assert.That(battle.CanIssueOrders, Is.False);
+            Assert.That(battle.TryEndPlayerTurn(), Is.False);
+            var movement = enemy.GetComponent<UnitMovementVisual>();
+            Assert.That(movement.IsMoving, Is.True);
+            Assert.That(enemy.Abilities.ActiveExclusiveAbility, Is.TypeOf<MoveAbility>());
+
+            Assert.That(battle.Grid.TryGetUnitCoordinates(player, out Vector2Int playerCell), Is.True);
+            float playerAp = player.Attributes.GetValue(AttributeType.ActionPoints);
+            Set(mouse.position, UnitScreen); Press(mouse.leftButton);
             yield return SettleFrame();
+            Set(mouse.position, CellScreen(playerCell + Vector2Int.right)); Release(mouse.leftButton);
             yield return SettleFrame();
+            Assert.That(battle.Grid.TryGetUnitCoordinates(player, out Vector2Int unchangedPlayer), Is.True);
+            Assert.That(unchangedPlayer, Is.EqualTo(playerCell));
+            Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(playerAp));
+
+            bool observedActiveAction = battle.HasActiveAction;
+            float deadline = Time.realtimeSinceStartup + 15f;
+            while (battle.Turns.CurrentFaction == Faction.Enemy &&
+                   Time.realtimeSinceStartup < deadline)
+            {
+                observedActiveAction |= battle.HasActiveAction;
+                if (battle.HasActiveAction)
+                    Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(Faction.Enemy),
+                        "敌方能力表现结束前不得返回玩家回合。");
+                yield return SettleFrame();
+            }
+
+            Assert.That(observedActiveAction, Is.True);
             Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(Faction.Player));
             Assert.That(battle.Turns.RoundNumber, Is.EqualTo(2));
             Assert.That(player.Attributes.GetValue(AttributeType.ActionPoints), Is.EqualTo(2));
+            Assert.That(battle.HasActiveAction, Is.False);
+            Assert.That(movement.IsMoving, Is.False);
+            Assert.That(battle.Grid.TryGetUnitCoordinates(enemy, out Vector2Int enemyEnd), Is.True);
+            Assert.That(enemyEnd, Is.Not.EqualTo(enemyStart));
+            Assert.That(Vector3.Distance(enemy.transform.position, battle.Grid.GridToWorld(enemyEnd)),
+                Is.LessThan(.001f));
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyShotVisualMustFinishBeforePlayerTurnReturns()
+        {
+            Unit enemy = battle.SpawnedUnits.First(u => u.Faction == Faction.Enemy);
+            var enemyCell = new Vector2Int(4, 1);
+            for (int x = 2; x <= enemyCell.x; x++)
+                battle.Grid.TrySetBlockState(new Vector2Int(x, 1), Wargame.GridSystem.BlockState.Unblocked);
+            Assert.That(battle.Grid.TryMoveUnit(enemy, enemyCell), Is.True);
+            enemy.transform.position = battle.Grid.GridToWorld(enemyCell);
+            enemy.Attributes.SetBaseValue(AttributeType.MaxActionPoints, 1f);
+            foreach (Unit playerUnit in battle.SpawnedUnits
+                         .Where(unit => unit != null && unit.Faction == Faction.Player))
+                playerUnit.Attributes.SetBaseValue(AttributeType.ActionPoints, 0f);
+            Physics.SyncTransforms();
+            yield return SettleFrame();
+
+            var shotVisual = enemy.GetComponent<UnitShootVisualController>();
+            ShootAbility enemyShoot = enemy.Abilities.GetAbility<ShootAbility>();
+            Assert.That(shotVisual, Is.Not.Null);
+            Assert.That(enemyShoot, Is.Not.Null);
+            ShootPreview preview = enemyShoot.GetPreview(player);
+            Assert.That(preview.IsAvailable, Is.True,
+                $"受控位置必须形成合法射击，失败原因：{preview.FailureReason}。");
+            Object.FindFirstObjectByType<BattleHUD>().EndTurnButton.onClick.Invoke();
+
+            string immediateState = $"enemyTurnActive={enemy.IsTurnActive}, " +
+                $"enemyAp={enemy.Attributes.GetValue(AttributeType.ActionPoints)}, " +
+                $"previewAvailable={preview.IsAvailable}, visualPlaying={shotVisual.IsPlaying}, " +
+                $"activeAbility={enemy.Abilities.ActiveExclusiveAbility?.AbilityId ?? "null"}";
+            Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(Faction.Enemy), immediateState);
+            Assert.That(battle.CanIssueOrders, Is.False);
+            Assert.That(shotVisual.IsPlaying, Is.True);
+            Assert.That(enemy.Abilities.ActiveExclusiveAbility, Is.TypeOf<ShootAbility>());
+            Assert.That(battle.HasActiveAction, Is.True);
+
+            float deadline = Time.realtimeSinceStartup + 10f;
+            while (shotVisual.IsPlaying && Time.realtimeSinceStartup < deadline)
+            {
+                Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(Faction.Enemy),
+                    "射击表现结束前不得返回玩家回合。");
+                Assert.That(enemy.Abilities.ActiveExclusiveAbility, Is.TypeOf<ShootAbility>());
+                yield return SettleFrame();
+            }
+
+            Assert.That(shotVisual.IsPlaying, Is.False, "射击表现必须在超时前完整结束。");
+            while (battle.Turns.CurrentFaction == Faction.Enemy &&
+                   Time.realtimeSinceStartup < deadline)
+                yield return SettleFrame();
+
+            Assert.That(battle.Turns.CurrentFaction, Is.EqualTo(Faction.Player));
+            Assert.That(battle.Turns.RoundNumber, Is.EqualTo(2));
+            Assert.That(enemy.Attributes.GetValue(AttributeType.ActionPoints), Is.Zero);
+            Assert.That(battle.HasActiveAction, Is.False);
         }
 
         [UnityTest]

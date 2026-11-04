@@ -36,6 +36,12 @@ namespace Wargame.Battle
         /// <summary>阵营回合结束，所属单位 EndTurn 之后触发。</summary>
         public event Action<Faction> FactionTurnEnded;
 
+        /// <summary>单位加入注册表后触发。</summary>
+        public event Action<Unit> UnitRegistered;
+
+        /// <summary>单位离开注册表后触发。</summary>
+        public event Action<Unit> UnitUnregistered;
+
         /// <summary>战斗状态。</summary>
         public BattleState State { get; private set; } = BattleState.NotStarted;
 
@@ -71,12 +77,18 @@ namespace Wargame.Battle
             if (unit == null || units.Contains(unit))
                 return false;
             units.Add(unit);
+            UnitRegistered?.Invoke(unit);
             return true;
         }
 
         /// <summary>注销单位，不会调用其 EndTurn。</summary>
         /// <returns>单位原本是否已注册。</returns>
-        public bool UnregisterUnit(Unit unit) => units.Remove(unit);
+        public bool UnregisterUnit(Unit unit)
+        {
+            if (!units.Remove(unit)) return false;
+            UnitUnregistered?.Invoke(unit);
+            return true;
+        }
 
         /// <summary>获取指定阵营的已注册单位。</summary>
         public List<Unit> GetUnits(Faction faction)

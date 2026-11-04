@@ -6,9 +6,18 @@ using Wargame.GridSystem;
 
 namespace Wargame.Units
 {
+    public interface IUnitMovementVisual
+    {
+        bool IsConfigured { get; }
+        bool IsMoving { get; }
+        void PlayMovement(GridManager grid, Vector2Int start, Vector2Int target,
+            Action<bool> onCompleted);
+        void StopMovement(bool notify = true);
+    }
+
     /// <summary>只负责 Transform 和模型表现；费用、路径与占用由 MoveAbility 管理。</summary>
     [DisallowMultipleComponent, RequireComponent(typeof(Unit))]
-    public sealed class UnitMovementVisual : MonoBehaviour
+    public sealed class UnitMovementVisual : MonoBehaviour, IUnitMovementVisual
     {
         [SerializeField] private Transform modelRoot;
         [SerializeField, Min(0.1f)] private float cellsPerSecond = 4f;
@@ -21,6 +30,7 @@ namespace Wargame.Units
         private Vector3 modelRestPosition, destination;
         private Action<bool> completion;
         private INavigationPathProvider pathProvider;
+        public bool IsConfigured => isActiveAndEnabled;
         public bool IsMoving => completion != null;
 
         internal INavigationPathProvider PathProvider

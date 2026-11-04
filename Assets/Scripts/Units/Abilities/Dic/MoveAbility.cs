@@ -28,14 +28,15 @@ namespace Wargame.Units
     public sealed class MoveAbility : AbilityBase
     {
         private readonly GridManager grid;
-        private readonly UnitMovementVisual _movementVisual;
+        private readonly IUnitMovementVisual movementVisual;
         private MovePlan committedPlan;
         private bool ownsMovingTag;
+        private int activationVersion;
 
-        public MoveAbility(GridManager grid, UnitMovementVisual movementVisual = null) : base("Move", AbilityTargetType.Cell)
+        public MoveAbility(GridManager grid, IUnitMovementVisual movementVisual = null) : base("Move", AbilityTargetType.Cell)
         {
             this.grid = grid != null ? grid : throw new ArgumentNullException(nameof(grid));
-            this._movementVisual = movementVisual;
+            this.movementVisual = movementVisual;
             DisplayName = "移动";
             AddBlockedTag(GameplayTag.Bound);
             AddBlockedTag(GameplayTag.Moving);
@@ -63,7 +64,7 @@ namespace Wargame.Units
         public override bool CanActivate(AbilityTarget target, out AbilityFailReason reason)
         {
             if (!base.CanActivate(target, out reason)) return false;
-            if (!Owner.isActiveAndEnabled || (_movementVisual != null && !_movementVisual.isActiveAndEnabled))
+            if (!Owner.isActiveAndEnabled || (movementVisual != null && !movementVisual.IsConfigured))
             { reason = AbilityFailReason.Custom; return false; }
             return TryBuildPlan(target.Cell, out _, out reason);
         }
@@ -108,9 +109,13 @@ namespace Wargame.Units
             ownsMovingTag = true;
             Owner.Tags.AddTag(GameplayTag.Moving);
             if (!IsActive) return;
-            if (_movementVisual != null)
-                _movementVisual.PlayMovement(grid, committedPlan.Start, committedPlan.Destination,
-                    cancelled => EndAbility(cancelled));
+            int version = ++activationVersion;
+            if (movementVisual != null)
+                movementVisual.PlayMovement(grid, committedPlan.Start, committedPlan.Destination,
+                    cancelled =>
+                    {
+                        if (version == activationVersion) EndAbility(cancelled);
+                    });
             else
             {
                 Owner.transform.position = grid.GridToWorld(committedPlan.Destination);
@@ -120,7 +125,8 @@ namespace Wargame.Units
 
         protected override void OnEnded(bool cancelled)
         {
-            if (_movementVisual != null) _movementVisual.StopMovement(false);
+            activationVersion++;
+            if (movementVisual != null) movementVisual.StopMovement(false);
             if (Owner != null && committedPlan != null && grid != null)
                 Owner.transform.position = grid.GridToWorld(committedPlan.Destination);
             if (ownsMovingTag && Owner != null) Owner.Tags.RemoveTag(GameplayTag.Moving);

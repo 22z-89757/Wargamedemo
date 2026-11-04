@@ -6241,6 +6241,7 @@ GameObject:
   - component: {fileID: 1090134391}
   - component: {fileID: 1090134395}
   - component: {fileID: 1090134396}
+  - component: {fileID: 1090134397}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -28712,6 +28713,7 @@ MonoBehaviour:
   grid: {fileID: 1090134390}
   gameSettings: {fileID: 11400000, guid: 850b3ea52f7b4d6fb6f06d90e573642c, type: 2}
   turns: {fileID: 1090134388}
+  enemyTurnController: {fileID: 1090134397}
   playerController: {fileID: 1090134392}
   preview: {fileID: 1090134393}
   hud: {fileID: 600100002}
@@ -28825,6 +28827,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Wargame.Runtime::Wargame.Battle.BattleDamagePopupManager
   viewPrefab: {fileID: 8290534552509598671, guid: 7bce557e76b0477409c679b039a75c43, type: 3}
+--- !u!114 &1090134397
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1090134387}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e653d0b26844f74085a25a60a8059af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Wargame.Runtime::Wargame.Battle.AI.EnemyTurnController
 --- !u!1001 &1101586882
 PrefabInstance:
   m_ObjectHideFlags: 0

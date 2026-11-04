@@ -23,6 +23,66 @@ namespace Wargame.Units
         West = 1 << 3
     }
 
+    /// <summary>双方逻辑占格之间的来袭方向与格子掩体查询规则。</summary>
+    public static class CoverDirectionRules
+    {
+        public static IncomingDirectionMask GetIncomingDirections(Vector2Int attackerCell,
+            Vector2Int targetCell)
+        {
+            Vector2Int delta = attackerCell - targetCell;
+            IncomingDirectionMask result = IncomingDirectionMask.None;
+            if (delta.y > 0) result |= IncomingDirectionMask.North;
+            else if (delta.y < 0) result |= IncomingDirectionMask.South;
+            if (delta.x > 0) result |= IncomingDirectionMask.East;
+            else if (delta.x < 0) result |= IncomingDirectionMask.West;
+            return result;
+        }
+
+        public static bool Includes(IncomingDirectionMask directions, GridDirection direction)
+        {
+            IncomingDirectionMask mask = direction switch
+            {
+                GridDirection.North => IncomingDirectionMask.North,
+                GridDirection.East => IncomingDirectionMask.East,
+                GridDirection.South => IncomingDirectionMask.South,
+                GridDirection.West => IncomingDirectionMask.West,
+                _ => throw new ArgumentOutOfRangeException(nameof(direction))
+            };
+            return (directions & mask) != 0;
+        }
+
+        /// <summary>读取目标格面向攻击者来向的最强掩体；斜向同时读取两个边。</summary>
+        public static CoverType GetStrongestCover(MapCellData targetCell,
+            Vector2Int attackerCell)
+        {
+            if (targetCell == null) throw new ArgumentNullException(nameof(targetCell));
+            IncomingDirectionMask directions = GetIncomingDirections(attackerCell,
+                targetCell.Coordinates);
+            CoverType strongest = CoverType.NoCover;
+            for (GridDirection direction = GridDirection.North;
+                 direction <= GridDirection.West; direction++)
+            {
+                if (!Includes(directions, direction)) continue;
+                CoverType cover = GetCover(targetCell, direction);
+                if (cover > strongest) strongest = cover;
+            }
+            return strongest;
+        }
+
+        public static CoverType GetCover(MapCellData cell, GridDirection direction)
+        {
+            if (cell == null) throw new ArgumentNullException(nameof(cell));
+            return direction switch
+            {
+                GridDirection.North => cell.NorthCover,
+                GridDirection.East => cell.EastCover,
+                GridDirection.South => cell.SouthCover,
+                GridDirection.West => cell.WestCover,
+                _ => throw new ArgumentOutOfRangeException(nameof(direction))
+            };
+        }
+    }
+
     /// <summary>命中率效果只读上下文；来向始终由双方实际占格计算。</summary>
     public readonly struct HitChanceContext
     {
@@ -34,7 +94,7 @@ namespace Wargame.Units
             AttackerCell = attackerCell;
             TargetCell = targetCell;
             AttackKind = attackKind;
-            IncomingDirections = GetIncomingDirections(attackerCell, targetCell);
+            IncomingDirections = CoverDirectionRules.GetIncomingDirections(attackerCell, targetCell);
         }
 
         public Unit Attacker { get; }
@@ -46,27 +106,7 @@ namespace Wargame.Units
 
         public bool Includes(GridDirection direction)
         {
-            IncomingDirectionMask mask = direction switch
-            {
-                GridDirection.North => IncomingDirectionMask.North,
-                GridDirection.East => IncomingDirectionMask.East,
-                GridDirection.South => IncomingDirectionMask.South,
-                GridDirection.West => IncomingDirectionMask.West,
-                _ => throw new ArgumentOutOfRangeException(nameof(direction))
-            };
-            return (IncomingDirections & mask) != 0;
-        }
-
-        private static IncomingDirectionMask GetIncomingDirections(Vector2Int attackerCell,
-            Vector2Int targetCell)
-        {
-            Vector2Int delta = attackerCell - targetCell;
-            IncomingDirectionMask result = IncomingDirectionMask.None;
-            if (delta.y > 0) result |= IncomingDirectionMask.North;
-            else if (delta.y < 0) result |= IncomingDirectionMask.South;
-            if (delta.x > 0) result |= IncomingDirectionMask.East;
-            else if (delta.x < 0) result |= IncomingDirectionMask.West;
-            return result;
+            return CoverDirectionRules.Includes(IncomingDirections, direction);
         }
     }
 

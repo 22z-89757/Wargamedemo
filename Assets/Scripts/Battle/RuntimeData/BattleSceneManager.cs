@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Wargame.Battle.AI;
 using Wargame.GridSystem;
 using Wargame.Units;
 
@@ -17,12 +18,13 @@ namespace Wargame.Battle
         { Prefab = prefab; Coordinates = coordinates; Yaw = yaw; }
     }
 
-    /// <summary>局内装配入口。生成和占用统一由此管理，敌人行为暂留空。</summary>
+    /// <summary>局内装配入口。统一生成单位、授予能力并接入玩家与敌方回合控制。</summary>
     public sealed class BattleSceneManager : MonoBehaviour
     {
         [SerializeField] private GridManager grid;
         [SerializeField] private GameSettings gameSettings;
         [SerializeField] private BattleTurnManager turns;
+        [SerializeField] private EnemyTurnController enemyTurnController;
         [SerializeField] private BattlePlayerController playerController;
         [SerializeField] private BattleMovementPreview preview;
         [SerializeField] private BattleHUD hud;
@@ -36,11 +38,11 @@ namespace Wargame.Battle
         private BattleCameraDirector cameraDirector;
         private ICoverBuffFactory coverBuffFactory;
         private bool initializing, cleaning;
-        private int skipEnemyAfterFrame = -1;
         public event Action Changed;
         public bool IsInitialized { get; private set; }
         public GridManager Grid => grid;
         public BattleTurnManager Turns => turns;
+        public EnemyTurnController EnemyTurns => enemyTurnController;
         public BattleCameraRig CameraRig => cameraRig;
         public BattleCameraDirector CameraDirector => cameraDirector;
         public BattleUnitHealthBars HealthBars => healthBars;
@@ -96,12 +98,11 @@ namespace Wargame.Battle
             if (initializing) { error = "初始化正在进行。"; return false; }
             if (grid == null || !grid.IsInitialized || turns == null || playerController == null || preview == null || hud == null)
             { error = "需要已初始化棋盘、回合管理器、玩家控制器、范围预览和 HUD。"; return false; }
+            if (enemyTurnController == null || !enemyTurnController.isActiveAndEnabled)
+            { error = "需要激活且启用的 EnemyTurnController。"; return false; }
             if (gameSettings == null)
             { error = "需要显式引用 GameSettings 射击配置资产。"; return false; }
             if (!gameSettings.TryValidate(out error)) return false;
-            if (healthBars == null) { error = "需要独立 Canvas 上的 BattleUnitHealthBars 血条层。"; return false; }
-            if (damagePopups == null || !damagePopups.ValidateConfiguration(out error))
-            { error = "需要有效的 BattleDamagePopupManager。" + (string.IsNullOrEmpty(error) ? string.Empty : " " + error); return false; }
             if (turns.State != BattleState.NotStarted || turns.Units.Count != 0)
             { error = "回合管理器必须尚未开始且没有已注册单位。"; return false; }
             var occupied = new HashSet<Vector2Int>();
@@ -110,6 +111,9 @@ namespace Wargame.Battle
             if (!Validate(playerSpawns, Faction.Player, occupied, out error) ||
                 !Validate(enemySpawns, Faction.Enemy, occupied, out error) ||
                 !playerController.ValidateConfiguration(out error)) return false;
+            if (healthBars == null) { error = "需要独立 Canvas 上的 BattleUnitHealthBars 血条层。"; return false; }
+            if (damagePopups == null || !damagePopups.ValidateConfiguration(out error))
+            { error = "需要有效的 BattleDamagePopupManager。" + (string.IsNullOrEmpty(error) ? string.Empty : " " + error); return false; }
             if (cameraRig == null) { error = "需要 BattleCameraRig。"; return false; }
             if (!cameraRig.ValidateConfiguration(out error)) return false;
             initializing = true;
@@ -130,6 +134,7 @@ namespace Wargame.Battle
                 turns.FactionTurnEnded += OnFactionEnded;
                 IsInitialized = true;
                 playerController.Initialize(this);
+                enemyTurnController.Initialize(turns, grid);
                 turns.StartBattle();
                 Changed?.Invoke();
                 return true;
@@ -193,12 +198,9 @@ namespace Wargame.Battle
                 if (!grid.TryPlaceUnit(unit, entry.Coordinates)) throw new InvalidOperationException("出生格登记失败。");
                 unit.GetComponent<UnitCoverController>().Initialize(grid, coverBuffFactory);
                 turns.RegisterUnit(unit);
-                if (faction == Faction.Player)
-                {
-                    unit.Abilities.Grant(new MoveAbility(grid, unit.GetComponent<UnitMovementVisual>()));
-                    unit.Abilities.Grant(new ShootAbility(grid, gameSettings.ShootSettings,
-                        unit.GetComponent<UnitShootVisualController>()));
-                }
+                unit.Abilities.Grant(new MoveAbility(grid, unit.GetComponent<UnitMovementVisual>()));
+                unit.Abilities.Grant(new ShootAbility(grid, gameSettings.ShootSettings,
+                    unit.GetComponent<UnitShootVisualController>()));
                 unit.Died += HandleUnitDied;
                 unit.Destroyed += ReleaseUnit;
                 unit.Attributes.AttributeChanged += OnUnitAttributeChanged;
@@ -215,19 +217,8 @@ namespace Wargame.Battle
             return true;
         }
 
-        private void Update()
-        {
-            if (skipEnemyAfterFrame >= 0 && Time.frameCount > skipEnemyAfterFrame)
-            {
-                skipEnemyAfterFrame = -1;
-                if (IsInitialized && turns.State == BattleState.Running && turns.CurrentFaction == Faction.Enemy)
-                    turns.EndCurrentTurn();
-            }
-        }
-
         private void OnFactionStarted(Faction faction)
         {
-            if (faction == Faction.Enemy) skipEnemyAfterFrame = Time.frameCount;
             Changed?.Invoke();
         }
         private void OnFactionEnded(Faction faction) => Changed?.Invoke();
@@ -265,6 +256,7 @@ namespace Wargame.Battle
         private void Cleanup()
         {
             cleaning = true;
+            if (enemyTurnController != null) enemyTurnController.Shutdown();
             if (playerController != null) playerController.Shutdown();
             if (damagePopups != null) damagePopups.Shutdown();
             cameraDirector?.Dispose();

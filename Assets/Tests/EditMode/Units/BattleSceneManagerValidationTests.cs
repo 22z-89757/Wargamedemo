@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Unity.Cinemachine;
 using Wargame.Battle;
+using Wargame.Battle.AI;
 using Wargame.GridSystem;
 using Wargame.Units;
 
@@ -33,6 +34,7 @@ namespace Wargame.Tests
             turns = CreateComponent<BattleTurnManager>();
             battle = CreateComponent<BattleSceneManager>();
             Reference(battle, "grid", grid); Reference(battle, "turns", turns);
+            Reference(battle, "enemyTurnController", CreateComponent<EnemyTurnController>());
             Reference(battle, "gameSettings", AssetDatabase.LoadAssetAtPath<GameSettings>("Assets/Data/Game/GameSettings.asset"));
             Reference(battle, "playerController", CreateComponent<BattlePlayerController>());
             Reference(battle, "preview", CreateComponent<BattleMovementPreview>());
@@ -117,11 +119,25 @@ namespace Wargame.Tests
         }
 
         [Test]
+        public void MissingEnemyTurnControllerIsRejectedBeforeSpawning()
+        {
+            SetSpawns(Vector2Int.one);
+            Reference(battle, "enemyTurnController", null);
+
+            Assert.That(battle.TryInitialize(out string error), Is.False);
+
+            Assert.That(error, Does.Contain("EnemyTurnController"));
+            Assert.That(battle.SpawnedUnits, Is.Empty);
+            Assert.That(turns.State, Is.EqualTo(BattleState.NotStarted));
+        }
+
+        [Test]
         public void MissingShootVisualConfigurationIsRejectedBeforeSpawning()
         {
             var invalid = CreateUnit("InvalidPrefab");
             invalid.gameObject.AddComponent<BoxCollider>();
             invalid.gameObject.AddComponent<UnitMovementVisual>();
+            invalid.gameObject.AddComponent<UnitCoverController>();
             invalid.gameObject.AddComponent<UnitShootVisualController>();
             prefab = invalid;
             SetSpawns(Vector2Int.one);
@@ -146,6 +162,8 @@ namespace Wargame.Tests
                     if (hud == null) hud = root.GetComponentInChildren<BattleHUD>(true);
                 }
                 Assert.That(manager, Is.Not.Null);
+                Assert.That(manager.EnemyTurns, Is.Not.Null);
+                Assert.That(manager.EnemyTurns.gameObject, Is.SameAs(manager.gameObject));
                 Assert.That(hud, Is.Not.Null);
                 Assert.That(hud.gameObject.name, Is.EqualTo("canvas"));
                 Assert.That(hud.transform.parent, Is.Null);
