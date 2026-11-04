@@ -1,7 +1,7 @@
 {
     "name": "Wargame.EditModeTests",
     "rootNamespace": "Wargame.Tests",
-    "references": ["Wargame.Runtime", "Wargame.Editor", "UnityEngine.UI", "Unity.Cinemachine"],
+    "references": ["Wargame.Runtime", "Wargame.Editor", "UnityEngine.UI", "Unity.TextMeshPro", "Unity.InputSystem", "Unity.Cinemachine"],
     "includePlatforms": ["Editor"],
     "optionalUnityReferences": ["TestAssemblies"]
 }

@@ -10,6 +10,7 @@ using Wargame.Battle;
 using Wargame.Battle.AI;
 using Wargame.GridSystem;
 using Wargame.Units;
+using Wargame.Events;
 
 namespace Wargame.Tests
 {
@@ -129,6 +130,34 @@ namespace Wargame.Tests
             Assert.That(error, Does.Contain("EnemyTurnController"));
             Assert.That(battle.SpawnedUnits, Is.Empty);
             Assert.That(turns.State, Is.EqualTo(BattleState.NotStarted));
+        }
+
+        [Test]
+        public void FailedInitializationKeepsPendingStartRequestWithoutRepublishing()
+        {
+            EventCenter.ResetForTests();
+            EventCenter events = EventCenter.Instance;
+            GameFlowController flow = events.gameObject.AddComponent<GameFlowController>();
+            flow.ConfigureForTests(_ => { });
+            int startedCount = 0;
+            System.Action<GameStartedEvent> listener = _ => startedCount++;
+            events.Subscribe(listener);
+            try
+            {
+                events.Publish(new GameStartedEvent());
+                Assert.That(flow.HasPendingGameStart, Is.True);
+                SetSpawns(Vector2Int.one);
+                Reference(battle, "enemyTurnController", null);
+
+                Assert.That(battle.TryInitialize(out _), Is.False);
+                Assert.That(startedCount, Is.EqualTo(1));
+                Assert.That(flow.HasPendingGameStart, Is.True);
+            }
+            finally
+            {
+                events.Unsubscribe(listener);
+                EventCenter.ResetForTests();
+            }
         }
 
         [Test]

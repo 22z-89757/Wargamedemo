@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Wargame.Events;
 using Wargame.Battle.AI;
 using Wargame.GridSystem;
 using Wargame.Units;
@@ -37,7 +38,7 @@ namespace Wargame.Battle
         private readonly List<Unit> spawned = new List<Unit>();
         private BattleCameraDirector cameraDirector;
         private ICoverBuffFactory coverBuffFactory;
-        private bool initializing, cleaning;
+        private bool initializing, cleaning, outcomePublished;
         public event Action Changed;
         public bool IsInitialized { get; private set; }
         public GridManager Grid => grid;
@@ -136,7 +137,13 @@ namespace Wargame.Battle
                 playerController.Initialize(this);
                 enemyTurnController.Initialize(turns, grid);
                 turns.StartBattle();
+                if (turns.State != BattleState.Running)
+                    throw new InvalidOperationException("回合管理器未能进入运行状态。");
+                EventCenter center = EventCenter.Instance;
+                GameFlowController flow = center.GetComponent<GameFlowController>();
+                flow?.TryConsumePendingGameStart();
                 Changed?.Invoke();
+                CheckForGameOutcome();
                 return true;
             }
             catch (Exception exception)
@@ -231,6 +238,7 @@ namespace Wargame.Battle
         {
             if (cleaning || unit == null) return;
             ReleaseUnit(unit);
+            CheckForGameOutcome();
             if (Application.isPlaying) Destroy(unit.gameObject); else DestroyImmediate(unit.gameObject);
         }
 
@@ -251,6 +259,35 @@ namespace Wargame.Battle
             unit.Abilities.AbilityActivated -= OnAbilityActivated;
             unit.Abilities.AbilityEnded -= OnAbilityEnded;
             Changed?.Invoke();
+        }
+
+        private void CheckForGameOutcome()
+        {
+            if (cleaning || outcomePublished || !IsInitialized || turns == null ||
+                turns.State != BattleState.Running)
+                return;
+
+            int livingPlayers = CountLiving(Faction.Player);
+            int livingEnemies = CountLiving(Faction.Enemy);
+            if (livingPlayers > 0 && livingEnemies > 0)
+                return;
+
+            GameOutcome outcome = livingPlayers == 0 && livingEnemies == 0
+                ? GameOutcome.Draw
+                : livingEnemies == 0 ? GameOutcome.Victory : GameOutcome.Defeat;
+            outcomePublished = true;
+            turns.EndBattle();
+            if (turns.State == BattleState.Ended)
+                EventCenter.Instance.Publish(new GameEndedEvent(outcome));
+        }
+
+        private int CountLiving(Faction faction)
+        {
+            int count = 0;
+            foreach (Unit unit in spawned)
+                if (unit != null && unit.Faction == faction && unit.IsAlive)
+                    count++;
+            return count;
         }
 
         private void Cleanup()
